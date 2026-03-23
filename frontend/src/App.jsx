@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://samatontine.onrender.com/api';
 
 const emptyMember = () => ({ fullName: '', phone: '', email: '' });
 
@@ -304,7 +304,7 @@ export default function App() {
       <div className="ambient ambient-1" />
       <div className="ambient ambient-2" />
 
-      <header className="hero">
+     <header className="hero" id="home">
         <nav className="topbar glass-card">
           <div>
             <div className="brand-row">
@@ -367,7 +367,7 @@ export default function App() {
       </header>
 
       <main className="main-grid mobile-main">
-        <aside className="sidebar glass-card">
+        <aside className="sidebar glass-card" id="tontines">
           <div className="sidebar-head">
             <h3>Mes tontines</h3>
             <button onClick={loadTontines} className="small-btn">
@@ -778,7 +778,12 @@ export default function App() {
           </section>
         </section>
       </main>
-
+<nav className="mobile-bottom-nav">
+  <a href="#home">Accueil</a>
+  <a href="#tontines">Tontines</a>
+  <a href="#create">Créer</a>
+  <a href="#dashboard">Dashboard</a>
+</nav>
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
