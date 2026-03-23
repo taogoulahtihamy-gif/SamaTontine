@@ -1,7 +1,8 @@
 node_modules
-dist
-.env
-backend/node_modules
 frontend/node_modules
-backend/data.sqlite
-.DS_Store
+backend/node_modules
+dist
+frontend/dist
+backend/.env
+frontend/.env
+.env
