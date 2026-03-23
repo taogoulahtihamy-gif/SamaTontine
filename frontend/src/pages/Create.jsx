@@ -1,8 +1,12 @@
+import Navbar from "../components/Navbar";
+
 function Create() {
   return (
     <div className="app-shell">
       <div className="ambient ambient-1" />
       <div className="ambient ambient-2" />
+
+      <Navbar />
 
       <main className="main-grid mobile-main">
         <section id="create" className="panel glass-card create-panel">
