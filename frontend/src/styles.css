@@ -835,3 +835,56 @@ select::-ms-expand {
     padding: 6px 10px;
   }
 }
+/* ===== SAFE MOBILE BOTTOM NAV ===== */
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 10px;
+    border-radius: 18px;
+    background: rgba(8, 16, 28, 0.88);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--line);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .mobile-bottom-nav a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 8px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid transparent;
+    transition: 0.2s ease;
+  }
+
+  .mobile-bottom-nav a:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(114, 246, 209, 0.22);
+  }
+
+  .app-shell {
+    padding-bottom: 88px;
+  }
+
+  html {
+    scroll-padding-bottom: 100px;
+  }
+}
