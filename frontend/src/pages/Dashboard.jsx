@@ -11,27 +11,110 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
+
+  const [memberForm, setMemberForm] = useState({
+    fullName: "",
+    phone: "",
+    email: "",
+  });
+
+  const [paymentForm, setPaymentForm] = useState({
+    memberId: "",
+    amount: "",
+    paymentDate: "",
+    note: "",
+  });
+
+  async function loadDashboard() {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/tontines/${id}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors du chargement du dashboard.");
+      }
+
+      setData(result);
+      setError("");
+    } catch (err) {
+      setError(err.message || "Erreur réseau");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const response = await fetch(`${API_BASE}/tontines/${id}`);
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.message || "Erreur lors du chargement du dashboard.");
-        }
-
-        setData(result);
-      } catch (err) {
-        setError(err.message || "Erreur réseau");
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadDashboard();
   }, [id]);
+
+  async function handleAddMember(e) {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/members`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(memberForm),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de l’ajout du membre.");
+      }
+
+      setMemberForm({
+        fullName: "",
+        phone: "",
+        email: "",
+      });
+
+      setToast("Membre ajouté avec succès");
+      setData(result);
+      setTimeout(() => setToast(""), 2500);
+    } catch (err) {
+      setToast(err.message || "Erreur réseau");
+      setTimeout(() => setToast(""), 2500);
+    }
+  }
+
+  async function handleAddPayment(e) {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/payments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(paymentForm),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de l’enregistrement du paiement.");
+      }
+
+      setPaymentForm({
+        memberId: "",
+        amount: "",
+        paymentDate: "",
+        note: "",
+      });
+
+      setToast("Paiement enregistré avec succès");
+      setData(result);
+      setTimeout(() => setToast(""), 2500);
+    } catch (err) {
+      setToast(err.message || "Erreur réseau");
+      setTimeout(() => setToast(""), 2500);
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -118,6 +201,95 @@ export default function Dashboard() {
                     <strong>{data.nextBeneficiary?.full_name || "Non défini"}</strong>
                   </div>
                 </div>
+              </article>
+            </section>
+
+            <section className="dashboard-grid" style={{ marginTop: "18px" }}>
+              <article className="dashboard-block glass-card">
+                <h3>Ajouter un membre</h3>
+
+                <form className="compact-form" onSubmit={handleAddMember}>
+                  <input
+                    type="text"
+                    placeholder="Nom complet"
+                    value={memberForm.fullName}
+                    onChange={(e) =>
+                      setMemberForm({ ...memberForm, fullName: e.target.value })
+                    }
+                  />
+
+                  <input
+                    type="text"
+                    placeholder="Téléphone"
+                    value={memberForm.phone}
+                    onChange={(e) =>
+                      setMemberForm({ ...memberForm, phone: e.target.value })
+                    }
+                  />
+
+                  <input
+                    type="email"
+                    placeholder="Email (optionnel)"
+                    value={memberForm.email}
+                    onChange={(e) =>
+                      setMemberForm({ ...memberForm, email: e.target.value })
+                    }
+                  />
+
+                  <button type="submit" className="primary-action-btn">
+                    Ajouter le membre
+                  </button>
+                </form>
+              </article>
+
+              <article className="dashboard-block glass-card">
+                <h3>Ajouter un paiement</h3>
+
+                <form className="compact-form" onSubmit={handleAddPayment}>
+                  <select
+                    value={paymentForm.memberId}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, memberId: e.target.value })
+                    }
+                  >
+                    <option value="">Choisir un membre</option>
+                    {data.members?.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.full_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="number"
+                    placeholder="Montant"
+                    value={paymentForm.amount}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, amount: e.target.value })
+                    }
+                  />
+
+                  <input
+                    type="date"
+                    value={paymentForm.paymentDate}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, paymentDate: e.target.value })
+                    }
+                  />
+
+                  <input
+                    type="text"
+                    placeholder="Note (optionnelle)"
+                    value={paymentForm.note}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, note: e.target.value })
+                    }
+                  />
+
+                  <button type="submit" className="primary-action-btn">
+                    Enregistrer le paiement
+                  </button>
+                </form>
               </article>
             </section>
 
@@ -227,6 +399,8 @@ export default function Dashboard() {
             </section>
           </>
         )}
+
+        {toast && <div className="toast">{toast}</div>}
       </main>
     </div>
   );
