@@ -959,3 +959,19 @@ textarea:focus {
     font-size: 1.1rem;
   }
 }
+.brand-copy {
+  min-width: 0;
+}
+
+.brand-copy strong {
+  display: block;
+}
+
+.brand-copy p {
+  margin: 4px 0 0;
+}
+@media (max-width: 520px) {
+  .brand-copy p {
+    display: none;
+  }
+}

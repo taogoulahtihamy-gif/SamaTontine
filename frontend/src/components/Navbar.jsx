@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 function Navbar() {
@@ -7,21 +7,27 @@ function Navbar() {
 
   const closeMenu = () => setMenuOpen(false);
 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   return (
-    <>
-      <nav className="topbar glass-card navbar-global">
+    <header className="navbar-global">
+      <nav className="topbar glass-card">
         <div className="brand-row">
           <div className="brand-mark">S</div>
-          <div>
+          <div className="brand-copy">
             <strong>SamaTontine</strong>
             <p>Gestion premium de tontines au Sénégal</p>
           </div>
         </div>
 
         <button
+          type="button"
           className="burger-btn"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Ouvrir le menu"
+          onClick={() => setMenuOpen((prev) => !prev)}
+          aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-expanded={menuOpen}
         >
           ☰
         </button>
@@ -29,7 +35,12 @@ function Navbar() {
 
       {menuOpen && (
         <>
-          <div className="menu-overlay" onClick={closeMenu}></div>
+          <button
+            type="button"
+            className="menu-overlay"
+            onClick={closeMenu}
+            aria-label="Fermer le menu"
+          />
 
           <div className="mobile-menu glass-card">
             <Link
@@ -66,7 +77,7 @@ function Navbar() {
           </div>
         </>
       )}
-    </>
+    </header>
   );
 }
 
