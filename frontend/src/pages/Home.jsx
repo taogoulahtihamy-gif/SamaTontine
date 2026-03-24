@@ -12,37 +12,50 @@ function Home() {
     nextBeneficiary: "À définir",
   });
 
-  useEffect(() => {
-    async function loadHomeStats() {
-      try {
-        const response = await fetch(`${API_BASE}/tontines`);
-        const data = await response.json();
+ useEffect(() => {
+  async function loadHomeStats() {
+    try {
+      const response = await fetch(`${API_BASE}/tontines`);
+      const data = await response.json();
 
-        if (!response.ok || !Array.isArray(data)) {
-          return;
-        }
+      if (!response.ok || !Array.isArray(data)) return;
 
-        const tontinesCount = data.length;
-        const totalCollected = data.reduce(
-          (sum, item) => sum + Number(item.total_collected || 0),
-          0
+      const tontinesCount = data.length;
+
+      const totalCollected = data.reduce(
+        (sum, t) => sum + Number(t.total_collected || 0),
+        0
+      );
+
+      let nextBeneficiary = "À définir";
+
+      // 👇 NOUVEAU : on va chercher le vrai bénéficiaire
+      if (data.length > 0) {
+        const firstTontine = data[0];
+
+        const dashboardRes = await fetch(
+          `${API_BASE}/tontines/${firstTontine.id}`
         );
 
-        const nextBeneficiary =
-          tontinesCount > 0 ? "Voir dans le dashboard" : "À définir";
+        const dashboardData = await dashboardRes.json();
 
-        setStats({
-          tontinesCount,
-          totalCollected,
-          nextBeneficiary,
-        });
-      } catch (error) {
-        console.error("Erreur chargement accueil :", error);
+        if (dashboardData?.nextBeneficiary) {
+         nextBeneficiary = `${dashboardData.nextBeneficiary.full_name} (${firstTontine.name})`;
+        }
       }
-    }
 
-    loadHomeStats();
-  }, []);
+      setStats({
+        tontinesCount,
+        totalCollected,
+        nextBeneficiary,
+      });
+    } catch (error) {
+      console.error("Erreur accueil:", error);
+    }
+  }
+
+  loadHomeStats();
+}, []);
 
   return (
     <div className="app-shell">
