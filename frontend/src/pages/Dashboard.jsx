@@ -34,6 +34,22 @@ export default function Dashboard() {
     status: "paid",
   });
 
+  const [editingTontine, setEditingTontine] = useState(false);
+  const [tontineForm, setTontineForm] = useState({
+    name: "",
+    amount: "",
+    frequency: "",
+    startDate: "",
+    description: "",
+  });
+
+  const [editingMemberId, setEditingMemberId] = useState(null);
+  const [editingMemberForm, setEditingMemberForm] = useState({
+    fullName: "",
+    phone: "",
+    email: "",
+  });
+
   const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [editingPaymentForm, setEditingPaymentForm] = useState({
     memberId: "",
@@ -84,6 +100,13 @@ export default function Dashboard() {
       }
 
       setData(result);
+      setTontineForm({
+        name: result.tontine?.name || "",
+        amount: result.tontine?.amount || "",
+        frequency: result.tontine?.frequency || "",
+        startDate: result.tontine?.start_date || "",
+        description: result.tontine?.description || "",
+      });
     } catch (err) {
       setError(err.message || "Erreur réseau");
       setData(null);
@@ -97,6 +120,77 @@ export default function Dashboard() {
       loadDashboard();
     }
   }, [id]);
+
+  async function handleUpdateTontine(e) {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(tontineForm),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la modification de la tontine.");
+      }
+
+      setData(result);
+      setEditingTontine(false);
+      showToast("Tontine modifiée avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
+    }
+  }
+
+  function startEditMember(member) {
+    setEditingMemberId(member.id);
+    setEditingMemberForm({
+      fullName: member.full_name || "",
+      phone: member.phone || "",
+      email: member.email || "",
+    });
+  }
+
+  function cancelEditMember() {
+    setEditingMemberId(null);
+    setEditingMemberForm({
+      fullName: "",
+      phone: "",
+      email: "",
+    });
+  }
+
+  async function handleUpdateMember(memberId) {
+    try {
+      const response = await fetch(
+        `${API_BASE}/tontines/${id}/members/${memberId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editingMemberForm),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la modification du membre.");
+      }
+
+      setData(result);
+      cancelEditMember();
+      showToast("Membre modifié avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
+    }
+  }
 
   async function handleAddMember(e) {
     e.preventDefault();
@@ -499,6 +593,60 @@ export default function Dashboard() {
 
         <section className="dashboard-grid" style={{ marginTop: "18px" }}>
           <article className="dashboard-block glass-card">
+            <h3>Modifier la tontine</h3>
+
+            <form className="compact-form" onSubmit={handleUpdateTontine}>
+              <input
+                type="text"
+                placeholder="Nom"
+                value={tontineForm.name}
+                onChange={(e) =>
+                  setTontineForm({ ...tontineForm, name: e.target.value })
+                }
+              />
+
+              <input
+                type="number"
+                placeholder="Montant"
+                value={tontineForm.amount}
+                onChange={(e) =>
+                  setTontineForm({ ...tontineForm, amount: e.target.value })
+                }
+              />
+
+              <input
+                type="text"
+                placeholder="Fréquence"
+                value={tontineForm.frequency}
+                onChange={(e) =>
+                  setTontineForm({ ...tontineForm, frequency: e.target.value })
+                }
+              />
+
+              <input
+                type="date"
+                value={tontineForm.startDate}
+                onChange={(e) =>
+                  setTontineForm({ ...tontineForm, startDate: e.target.value })
+                }
+              />
+
+              <input
+                type="text"
+                placeholder="Description"
+                value={tontineForm.description}
+                onChange={(e) =>
+                  setTontineForm({ ...tontineForm, description: e.target.value })
+                }
+              />
+
+              <button type="submit" className="primary-action-btn">
+                Enregistrer la tontine
+              </button>
+            </form>
+          </article>
+
+          <article className="dashboard-block glass-card">
             <h3>Ajouter un membre</h3>
 
             <form className="compact-form" onSubmit={handleAddMember}>
@@ -534,7 +682,9 @@ export default function Dashboard() {
               </button>
             </form>
           </article>
+        </section>
 
+        <section className="dashboard-grid" style={{ marginTop: "18px" }}>
           <article className="dashboard-block glass-card">
             <h3>Ajouter un paiement</h3>
 
@@ -584,9 +734,7 @@ export default function Dashboard() {
               </button>
             </form>
           </article>
-        </section>
 
-        <section className="dashboard-grid" style={{ marginTop: "18px" }}>
           <article className="dashboard-block glass-card">
             <h3>Enregistrer une redistribution</h3>
 
@@ -649,7 +797,9 @@ export default function Dashboard() {
               </button>
             </form>
           </article>
+        </section>
 
+        <section className="dashboard-grid" style={{ marginTop: "18px" }}>
           <article className="dashboard-block glass-card">
             <h3>Prochain bénéficiaire</h3>
 
@@ -683,6 +833,68 @@ export default function Dashboard() {
                 data.members.map((member) => {
                   const status = getMemberStatus(member, data.tontine?.amount);
 
+                  if (editingMemberId === member.id) {
+                    return (
+                      <div key={member.id} className="glass-subcard">
+                        <div className="compact-form">
+                          <input
+                            type="text"
+                            placeholder="Nom complet"
+                            value={editingMemberForm.fullName}
+                            onChange={(e) =>
+                              setEditingMemberForm({
+                                ...editingMemberForm,
+                                fullName: e.target.value,
+                              })
+                            }
+                          />
+
+                          <input
+                            type="text"
+                            placeholder="Téléphone"
+                            value={editingMemberForm.phone}
+                            onChange={(e) =>
+                              setEditingMemberForm({
+                                ...editingMemberForm,
+                                phone: e.target.value,
+                              })
+                            }
+                          />
+
+                          <input
+                            type="email"
+                            placeholder="Email"
+                            value={editingMemberForm.email}
+                            onChange={(e) =>
+                              setEditingMemberForm({
+                                ...editingMemberForm,
+                                email: e.target.value,
+                              })
+                            }
+                          />
+
+                          <div className="inline-actions">
+                            <button
+                              type="button"
+                              className="primary-action-btn"
+                              onClick={() => handleUpdateMember(member.id)}
+                            >
+                              Enregistrer
+                            </button>
+
+                            <button
+                              type="button"
+                              className="secondary-action-btn"
+                              onClick={cancelEditMember}
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div key={member.id} className="status-row">
                       <div className="status-left">
@@ -703,6 +915,14 @@ export default function Dashboard() {
                         <small>{member.payments_count || 0} paiement(s)</small>
 
                         <div className="inline-actions">
+                          <button
+                            type="button"
+                            className="secondary-action-btn"
+                            onClick={() => startEditMember(member)}
+                          >
+                            Modifier
+                          </button>
+
                           <button
                             type="button"
                             className="danger-action-btn"
