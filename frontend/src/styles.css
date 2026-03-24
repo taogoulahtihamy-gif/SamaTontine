@@ -1060,3 +1060,30 @@ textarea:focus {
 .danger-action-btn:active {
   transform: scale(0.98);
 }
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.inline-actions .secondary-action-btn,
+.inline-actions .danger-action-btn,
+.inline-actions .primary-action-btn {
+  min-height: 40px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 768px) {
+  .inline-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inline-actions .secondary-action-btn,
+  .inline-actions .danger-action-btn,
+  .inline-actions .primary-action-btn {
+    width: 100%;
+  }
+}
