@@ -124,7 +124,7 @@ export default function Dashboard() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Erreur lors de l’enregistrement du paiement.");
+        throw new Error(result.message || "Erreur lors du paiement.");
       }
 
       setPaymentForm({
@@ -135,7 +135,7 @@ export default function Dashboard() {
       });
 
       setData(result);
-      showToast("Paiement enregistré avec succès");
+      showToast("Paiement enregistré");
     } catch (err) {
       showToast(err.message || "Erreur réseau");
     }
@@ -168,29 +168,7 @@ export default function Dashboard() {
       });
 
       setData(result);
-      showToast("Redistribution enregistrée avec succès");
-    } catch (err) {
-      showToast(err.message || "Erreur réseau");
-    }
-  }
-
-  async function handleDeleteMember(memberId, fullName) {
-    const ok = window.confirm(`Supprimer le membre "${fullName}" ?`);
-    if (!ok) return;
-
-    try {
-      const response = await fetch(`${API_BASE}/tontines/${id}/members/${memberId}`, {
-        method: "DELETE",
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Erreur lors de la suppression du membre.");
-      }
-
-      setData(result);
-      showToast("Membre supprimé avec succès");
+      showToast("Redistribution enregistrée");
     } catch (err) {
       showToast(err.message || "Erreur réseau");
     }
@@ -490,18 +468,6 @@ export default function Dashboard() {
                               {Number(member.total_paid || 0).toLocaleString()} FCFA
                             </strong>
                             <small>{member.payments_count || 0} paiement(s)</small>
-
-                            <div style={{ marginTop: "10px" }}>
-                              <button
-                                type="button"
-                                className="danger-action-btn"
-                                onClick={() =>
-                                  handleDeleteMember(member.id, member.full_name)
-                                }
-                              >
-                                Supprimer
-                              </button>
-                            </div>
                           </div>
                         </div>
                       );
