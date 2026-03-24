@@ -1,572 +1,992 @@
-require('dotenv').config();
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import Navbar from "../components/Navbar";
 
-const express = require('express');
-const cors = require('cors');
-const pool = require('./db');
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "https://samatontine.onrender.com/api";
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+export default function Dashboard() {
+  const { id } = useParams();
 
-app.use(cors());
-app.use(express.json());
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
 
-function mapTontineRow(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    amount: Number(row.amount || 0),
-    frequency: row.frequency,
-    start_date: row.start_date,
-    description: row.description,
-    members_count: Number(row.members_count || 0),
-    total_collected: Number(row.total_collected || 0),
-  };
-}
+  const [memberForm, setMemberForm] = useState({
+    fullName: "",
+    phone: "",
+    email: "",
+  });
 
-async function buildDashboard(tontineId) {
-  const tontineResult = await pool.query(
-    `
-    SELECT
-      t.id,
-      t.name,
-      t.amount,
-      t.frequency,
-      t.start_date,
-      t.description
-    FROM tontines t
-    WHERE t.id = $1
-    `,
-    [tontineId]
-  );
+  const [paymentForm, setPaymentForm] = useState({
+    memberId: "",
+    amount: "",
+    paymentDate: "",
+    note: "",
+  });
 
-  if (tontineResult.rows.length === 0) {
-    return null;
+  const [payoutForm, setPayoutForm] = useState({
+    beneficiaryMemberId: "",
+    roundLabel: "",
+    amount: "",
+    payoutDate: "",
+    status: "paid",
+  });
+
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [editingPaymentForm, setEditingPaymentForm] = useState({
+    memberId: "",
+    amount: "",
+    paymentDate: "",
+    note: "",
+  });
+
+  const [editingPayoutId, setEditingPayoutId] = useState(null);
+  const [editingPayoutForm, setEditingPayoutForm] = useState({
+    beneficiaryMemberId: "",
+    roundLabel: "",
+    amount: "",
+    payoutDate: "",
+    status: "paid",
+  });
+
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(""), 2500);
   }
 
-  const tontine = tontineResult.rows[0];
+  function getMemberStatus(member, tontineAmount) {
+    const paid = Number(member?.total_paid || 0);
+    const expected = Number(tontineAmount || 0);
 
-  const membersResult = await pool.query(
-    `
-    SELECT
-      m.id,
-      m.full_name,
-      m.phone,
-      m.email,
-      m.position,
-      COALESCE(SUM(p.amount), 0) AS total_paid,
-      COUNT(p.id) AS payments_count
-    FROM members m
-    LEFT JOIN payments p ON p.member_id = m.id
-    WHERE m.tontine_id = $1
-    GROUP BY m.id
-    ORDER BY m.position ASC, m.id ASC
-    `,
-    [tontineId]
-  );
-
-  const totalsResult = await pool.query(
-    `
-    SELECT
-      COALESCE(SUM(amount), 0) AS total_collected,
-      COUNT(*) AS payments_count
-    FROM payments
-    WHERE tontine_id = $1
-    `,
-    [tontineId]
-  );
-
-  const recentPaymentsResult = await pool.query(
-    `
-    SELECT
-      p.id,
-      p.amount,
-      p.payment_date,
-      p.note,
-      m.full_name AS member_name
-    FROM payments p
-    JOIN members m ON m.id = p.member_id
-    WHERE p.tontine_id = $1
-    ORDER BY p.payment_date DESC, p.id DESC
-    LIMIT 10
-    `,
-    [tontineId]
-  );
-
-  const payoutHistoryResult = await pool.query(
-    `
-    SELECT
-      po.id,
-      po.round_label,
-      po.amount,
-      po.payout_date,
-      po.status,
-      m.full_name AS beneficiary_name
-    FROM payouts po
-    JOIN members m ON m.id = po.beneficiary_member_id
-    WHERE po.tontine_id = $1
-    ORDER BY po.payout_date DESC, po.id DESC
-    LIMIT 10
-    `,
-    [tontineId]
-  );
-
-  const nextBeneficiaryResult = await pool.query(
-    `
-    SELECT
-      m.id,
-      m.full_name,
-      m.phone,
-      m.email,
-      m.position
-    FROM members m
-    WHERE m.tontine_id = $1
-      AND m.id NOT IN (
-        SELECT beneficiary_member_id
-        FROM payouts
-        WHERE tontine_id = $1
-      )
-    ORDER BY m.position ASC, m.id ASC
-    LIMIT 1
-    `,
-    [tontineId]
-  );
-
-  const allMembersOrderedResult = await pool.query(
-    `
-    SELECT id, full_name, phone, email, position
-    FROM members
-    WHERE tontine_id = $1
-    ORDER BY position ASC, id ASC
-    `,
-    [tontineId]
-  );
-
-  const nextBeneficiary =
-    nextBeneficiaryResult.rows[0] || allMembersOrderedResult.rows[0] || null;
-
-  return {
-    tontine: {
-      id: tontine.id,
-      name: tontine.name,
-      amount: Number(tontine.amount || 0),
-      frequency: tontine.frequency,
-      start_date: tontine.start_date,
-      description: tontine.description,
-    },
-    members: membersResult.rows.map((m) => ({
-      ...m,
-      total_paid: Number(m.total_paid || 0),
-      payments_count: Number(m.payments_count || 0),
-      position: Number(m.position || 0),
-    })),
-    totals: {
-      total_collected: Number(totalsResult.rows[0]?.total_collected || 0),
-      payments_count: Number(totalsResult.rows[0]?.payments_count || 0),
-    },
-    recentPayments: recentPaymentsResult.rows.map((p) => ({
-      ...p,
-      amount: Number(p.amount || 0),
-    })),
-    payoutHistory: payoutHistoryResult.rows.map((p) => ({
-      ...p,
-      amount: Number(p.amount || 0),
-    })),
-    nextBeneficiary,
-  };
-}
-
-/**
- * GET /
- */
-app.get('/', (req, res) => {
-  res.send('Backend OK');
-});
-
-/**
- * GET /health
- */
-app.get('/health', (req, res) => {
-  res.json({ ok: true });
-});
-
-/**
- * GET /api/health
- */
-app.get('/api/health', async (req, res) => {
-  try {
-    await pool.query('SELECT NOW()');
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('GET /api/health error:', error);
-    res.status(500).json({ ok: false, message: 'DB non disponible' });
-  }
-});
-
-/**
- * GET /api/tontines
- */
-app.get('/api/tontines', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `
-      SELECT
-        t.id,
-        t.name,
-        t.amount,
-        t.frequency,
-        t.start_date,
-        t.description,
-        COUNT(DISTINCT m.id) AS members_count,
-        COALESCE(SUM(p.amount), 0) AS total_collected
-      FROM tontines t
-      LEFT JOIN members m ON m.tontine_id = t.id
-      LEFT JOIN payments p ON p.tontine_id = t.id
-      GROUP BY t.id
-      ORDER BY t.id DESC
-      `
-    );
-
-    res.json(result.rows.map(mapTontineRow));
-  } catch (error) {
-    console.error('GET /api/tontines error:', error);
-    res.status(500).json({ message: 'Erreur serveur lors du chargement des tontines.' });
-  }
-});
-
-/**
- * GET /api/tontines/:id
- */
-app.get('/api/tontines/:id', async (req, res) => {
-  try {
-    const tontineId = Number(req.params.id);
-    const dashboard = await buildDashboard(tontineId);
-
-    if (!dashboard) {
-      return res.status(404).json({ message: 'Tontine introuvable.' });
+    if (expected > 0 && paid >= expected) {
+      return { label: "À jour", className: "paid" };
     }
 
-    res.json(dashboard);
-  } catch (error) {
-    console.error('GET /api/tontines/:id error:', error);
-    res.status(500).json({ message: 'Erreur serveur lors du chargement du dashboard.' });
+    if (paid > 0) {
+      return { label: "Partiel", className: "partial" };
+    }
+
+    return { label: "En attente", className: "pending" };
   }
-});
 
-/**
- * POST /api/tontines
- */
-app.post('/api/tontines', async (req, res) => {
-  const client = await pool.connect();
+  async function loadDashboard() {
+    try {
+      setLoading(true);
+      setError("");
 
-  try {
-    const { name, amount, frequency, startDate, description, members } = req.body;
+      const response = await fetch(`${API_BASE}/tontines/${id}`);
+      const result = await response.json();
 
-    if (!name || !amount || !frequency) {
-      return res.status(400).json({
-        message: 'Nom, montant et fréquence sont obligatoires.',
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors du chargement du dashboard.");
+      }
+
+      setData(result);
+    } catch (err) {
+      setError(err.message || "Erreur réseau");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (id) {
+      loadDashboard();
+    }
+  }, [id]);
+
+  async function handleAddMember(e) {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/members`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(memberForm),
       });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de l’ajout du membre.");
+      }
+
+      setMemberForm({
+        fullName: "",
+        phone: "",
+        email: "",
+      });
+
+      setData(result);
+      showToast("Membre ajouté avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
     }
+  }
 
-    await client.query('BEGIN');
+  async function handleDeleteMember(memberId, fullName) {
+    const ok = window.confirm(`Supprimer le membre "${fullName}" ?`);
+    if (!ok) return;
 
-    const tontineInsert = await client.query(
-      `
-      INSERT INTO tontines (name, amount, frequency, start_date, description)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id
-      `,
-      [name, Number(amount), frequency, startDate || null, description || null]
-    );
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/members/${memberId}`, {
+        method: "DELETE",
+      });
 
-    const tontineId = tontineInsert.rows[0].id;
+      const result = await response.json();
 
-    const validMembers = Array.isArray(members)
-      ? members.filter((m) => m.fullName && m.fullName.trim())
-      : [];
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la suppression du membre.");
+      }
 
-    for (let i = 0; i < validMembers.length; i++) {
-      const member = validMembers[i];
+      setData(result);
+      showToast("Membre supprimé avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
+    }
+  }
 
-      await client.query(
-        `
-        INSERT INTO members (tontine_id, full_name, phone, email, position)
-        VALUES ($1, $2, $3, $4, $5)
-        `,
-        [
-          tontineId,
-          member.fullName.trim(),
-          member.phone || '',
-          member.email || null,
-          i + 1,
-        ]
+  async function handleAddPayment(e) {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/payments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(paymentForm),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de l’enregistrement du paiement.");
+      }
+
+      setPaymentForm({
+        memberId: "",
+        amount: "",
+        paymentDate: "",
+        note: "",
+      });
+
+      setData(result);
+      showToast("Paiement enregistré avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
+    }
+  }
+
+  function startEditPayment(payment) {
+    const member = data?.members?.find((m) => m.full_name === payment.member_name);
+
+    setEditingPaymentId(payment.id);
+    setEditingPaymentForm({
+      memberId: member?.id ? String(member.id) : "",
+      amount: String(payment.amount || ""),
+      paymentDate: payment.payment_date || "",
+      note: payment.note || "",
+    });
+  }
+
+  function cancelEditPayment() {
+    setEditingPaymentId(null);
+    setEditingPaymentForm({
+      memberId: "",
+      amount: "",
+      paymentDate: "",
+      note: "",
+    });
+  }
+
+  async function handleUpdatePayment(paymentId) {
+    try {
+      const response = await fetch(
+        `${API_BASE}/tontines/${id}/payments/${paymentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editingPaymentForm),
+        }
       );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la modification du paiement.");
+      }
+
+      setData(result);
+      cancelEditPayment();
+      showToast("Paiement modifié avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
     }
-
-    await client.query('COMMIT');
-
-    const dashboard = await buildDashboard(tontineId);
-    res.status(201).json(dashboard);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('POST /api/tontines error:', error);
-    res.status(500).json({ message: 'Erreur lors de la création de la tontine.' });
-  } finally {
-    client.release();
   }
-});
 
-/**
- * POST /api/tontines/:id/members
- */
-app.post('/api/tontines/:id/members', async (req, res) => {
-  try {
-    const tontineId = Number(req.params.id);
-    const { fullName, phone, email } = req.body;
+  async function handleDeletePayment(paymentId, memberName) {
+    const ok = window.confirm(`Supprimer le paiement de "${memberName}" ?`);
+    if (!ok) return;
 
-    if (!fullName || !fullName.trim()) {
-      return res.status(400).json({ message: 'Le nom complet est obligatoire.' });
+    try {
+      const response = await fetch(
+        `${API_BASE}/tontines/${id}/payments/${paymentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la suppression du paiement.");
+      }
+
+      setData(result);
+      showToast("Paiement supprimé avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
     }
-
-    const positionResult = await pool.query(
-      `
-      SELECT COALESCE(MAX(position), 0) + 1 AS next_position
-      FROM members
-      WHERE tontine_id = $1
-      `,
-      [tontineId]
-    );
-
-    const nextPosition = Number(positionResult.rows[0].next_position || 1);
-
-    await pool.query(
-      `
-      INSERT INTO members (tontine_id, full_name, phone, email, position)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
-      [tontineId, fullName.trim(), phone || '', email || null, nextPosition]
-    );
-
-    const dashboard = await buildDashboard(tontineId);
-    res.status(201).json(dashboard);
-  } catch (error) {
-    console.error('POST /api/tontines/:id/members error:', error);
-    res.status(500).json({ message: 'Erreur lors de l’ajout du membre.' });
   }
-});
 
-/**
- * DELETE /api/tontines/:id/members/:memberId
- */
-app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
-  const client = await pool.connect();
+  async function handleAddPayout(e) {
+    e.preventDefault();
 
-  try {
-    const tontineId = Number(req.params.id);
-    const memberId = Number(req.params.memberId);
-
-    await client.query('BEGIN');
-
-    await client.query(
-      `DELETE FROM payouts WHERE tontine_id = $1 AND beneficiary_member_id = $2`,
-      [tontineId, memberId]
-    );
-
-    await client.query(
-      `DELETE FROM payments WHERE tontine_id = $1 AND member_id = $2`,
-      [tontineId, memberId]
-    );
-
-    const result = await client.query(
-      `DELETE FROM members WHERE tontine_id = $1 AND id = $2 RETURNING id`,
-      [tontineId, memberId]
-    );
-
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ message: 'Membre introuvable.' });
-    }
-
-    await client.query('COMMIT');
-
-    const dashboard = await buildDashboard(tontineId);
-    res.json(dashboard);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('DELETE /api/tontines/:id/members/:memberId error:', error);
-    res.status(500).json({ message: 'Erreur lors de la suppression du membre.' });
-  } finally {
-    client.release();
-  }
-});
-
-/**
- * POST /api/tontines/:id/payments
- */
-app.post('/api/tontines/:id/payments', async (req, res) => {
-  try {
-    const tontineId = Number(req.params.id);
-    const { memberId, amount, paymentDate, note } = req.body;
-
-    if (!memberId || !amount || !paymentDate) {
-      return res.status(400).json({
-        message: 'Membre, montant et date sont obligatoires.',
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/payouts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payoutForm),
       });
-    }
 
-    await pool.query(
-      `
-      INSERT INTO payments (tontine_id, member_id, amount, payment_date, note)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
-      [tontineId, Number(memberId), Number(amount), paymentDate, note || null]
-    );
+      const result = await response.json();
 
-    const dashboard = await buildDashboard(tontineId);
-    res.status(201).json(dashboard);
-  } catch (error) {
-    console.error('POST /api/tontines/:id/payments error:', error);
-    res.status(500).json({ message: 'Erreur lors de l’enregistrement du paiement.' });
-  }
-});
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la redistribution.");
+      }
 
-/**
- * DELETE /api/tontines/:id/payments/:paymentId
- */
-app.delete('/api/tontines/:id/payments/:paymentId', async (req, res) => {
-  try {
-    const tontineId = Number(req.params.id);
-    const paymentId = Number(req.params.paymentId);
-
-    const result = await pool.query(
-      `
-      DELETE FROM payments
-      WHERE tontine_id = $1 AND id = $2
-      RETURNING id
-      `,
-      [tontineId, paymentId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Paiement introuvable.' });
-    }
-
-    const dashboard = await buildDashboard(tontineId);
-    res.json(dashboard);
-  } catch (error) {
-    console.error('DELETE /api/tontines/:id/payments/:paymentId error:', error);
-    res.status(500).json({ message: 'Erreur lors de la suppression du paiement.' });
-  }
-});
-
-/**
- * POST /api/tontines/:id/payouts
- */
-app.post('/api/tontines/:id/payouts', async (req, res) => {
-  try {
-    const tontineId = Number(req.params.id);
-    const { beneficiaryMemberId, roundLabel, amount, payoutDate, status } = req.body;
-
-    if (!beneficiaryMemberId || !roundLabel || !amount || !payoutDate) {
-      return res.status(400).json({
-        message: 'Bénéficiaire, tour, montant et date sont obligatoires.',
+      setPayoutForm({
+        beneficiaryMemberId: "",
+        roundLabel: "",
+        amount: "",
+        payoutDate: "",
+        status: "paid",
       });
+
+      setData(result);
+      showToast("Redistribution enregistrée avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
     }
-
-    await pool.query(
-      `
-      INSERT INTO payouts (
-        tontine_id,
-        beneficiary_member_id,
-        round_label,
-        amount,
-        payout_date,
-        status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      `,
-      [
-        tontineId,
-        Number(beneficiaryMemberId),
-        roundLabel,
-        Number(amount),
-        payoutDate,
-        status || 'paid',
-      ]
-    );
-
-    const dashboard = await buildDashboard(tontineId);
-    res.status(201).json(dashboard);
-  } catch (error) {
-    console.error('POST /api/tontines/:id/payouts error:', error);
-    res.status(500).json({ message: 'Erreur lors de l’enregistrement du tour.' });
   }
-});
 
-/**
- * DELETE /api/tontines/:id/payouts/:payoutId
- */
-app.delete('/api/tontines/:id/payouts/:payoutId', async (req, res) => {
-  try {
-    const tontineId = Number(req.params.id);
-    const payoutId = Number(req.params.payoutId);
+  function startEditPayout(item) {
+    const member = data?.members?.find((m) => m.full_name === item.beneficiary_name);
 
-    const result = await pool.query(
-      `
-      DELETE FROM payouts
-      WHERE tontine_id = $1 AND id = $2
-      RETURNING id
-      `,
-      [tontineId, payoutId]
-    );
+    setEditingPayoutId(item.id);
+    setEditingPayoutForm({
+      beneficiaryMemberId: member?.id ? String(member.id) : "",
+      roundLabel: item.round_label || "",
+      amount: String(item.amount || ""),
+      payoutDate: item.payout_date || "",
+      status: item.status || "paid",
+    });
+  }
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Redistribution introuvable.' });
+  function cancelEditPayout() {
+    setEditingPayoutId(null);
+    setEditingPayoutForm({
+      beneficiaryMemberId: "",
+      roundLabel: "",
+      amount: "",
+      payoutDate: "",
+      status: "paid",
+    });
+  }
+
+  async function handleUpdatePayout(payoutId) {
+    try {
+      const response = await fetch(
+        `${API_BASE}/tontines/${id}/payouts/${payoutId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editingPayoutForm),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la modification de la redistribution.");
+      }
+
+      setData(result);
+      cancelEditPayout();
+      showToast("Redistribution modifiée avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
     }
-
-    const dashboard = await buildDashboard(tontineId);
-    res.json(dashboard);
-  } catch (error) {
-    console.error('DELETE /api/tontines/:id/payouts/:payoutId error:', error);
-    res.status(500).json({ message: 'Erreur lors de la suppression de la redistribution.' });
   }
-});
 
-/**
- * DELETE /api/tontines/:id
- */
-app.delete('/api/tontines/:id', async (req, res) => {
-  const client = await pool.connect();
+  async function handleDeletePayout(payoutId, beneficiaryName) {
+    const ok = window.confirm(`Supprimer la redistribution de "${beneficiaryName}" ?`);
+    if (!ok) return;
 
-  try {
-    const tontineId = Number(req.params.id);
+    try {
+      const response = await fetch(
+        `${API_BASE}/tontines/${id}/payouts/${payoutId}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-    await client.query('BEGIN');
+      const result = await response.json();
 
-    await client.query(`DELETE FROM payouts WHERE tontine_id = $1`, [tontineId]);
-    await client.query(`DELETE FROM payments WHERE tontine_id = $1`, [tontineId]);
-    await client.query(`DELETE FROM members WHERE tontine_id = $1`, [tontineId]);
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la suppression de la redistribution.");
+      }
 
-    const result = await client.query(
-      `DELETE FROM tontines WHERE id = $1 RETURNING id`,
-      [tontineId]
-    );
-
-    await client.query('COMMIT');
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Tontine introuvable.' });
+      setData(result);
+      showToast("Redistribution supprimée avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
     }
-
-    res.json({ message: 'Tontine supprimée avec succès.' });
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('DELETE /api/tontines/:id error:', error);
-    res.status(500).json({ message: 'Erreur lors de la suppression de la tontine.' });
-  } finally {
-    client.release();
   }
-});
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+  if (loading) {
+    return (
+      <div className="app-shell">
+        <div className="ambient ambient-1" />
+        <div className="ambient ambient-2" />
+        <Navbar />
+        <main className="page-shell">
+          <p className="state-text">Chargement du dashboard...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-shell">
+        <div className="ambient ambient-1" />
+        <div className="ambient ambient-2" />
+        <Navbar />
+        <main className="page-shell">
+          <p className="state-text error-text">{error}</p>
+          <Link to="/tontines" className="secondary-action-btn">
+            Retour aux tontines
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="app-shell">
+        <div className="ambient ambient-1" />
+        <div className="ambient ambient-2" />
+        <Navbar />
+        <main className="page-shell">
+          <p className="state-text">Aucune donnée disponible.</p>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="ambient ambient-1" />
+      <div className="ambient ambient-2" />
+
+      <Navbar />
+
+      <main className="page-shell">
+        <section className="list-hero-card">
+          <div>
+            <span className="section-chip">Dashboard</span>
+            <h1>{data.tontine?.name || "Tontine"}</h1>
+            <p>{data.tontine?.description || "Aucune description."}</p>
+          </div>
+
+          <Link to="/tontines" className="secondary-action-btn">
+            ← Retour aux tontines
+          </Link>
+        </section>
+
+        <section className="dashboard-grid">
+          <article className="dashboard-block glass-card">
+            <h3>Informations générales</h3>
+
+            <div className="member-status-list">
+              <div className="status-row">
+                <div className="status-left">
+                  <strong>Montant</strong>
+                </div>
+                <div className="status-right">
+                  <strong>
+                    {Number(data.tontine?.amount || 0).toLocaleString()} FCFA
+                  </strong>
+                </div>
+              </div>
+
+              <div className="status-row">
+                <div className="status-left">
+                  <strong>Fréquence</strong>
+                </div>
+                <div className="status-right">
+                  <strong>{data.tontine?.frequency || "Non définie"}</strong>
+                </div>
+              </div>
+
+              <div className="status-row">
+                <div className="status-left">
+                  <strong>Date de début</strong>
+                </div>
+                <div className="status-right">
+                  <strong>{data.tontine?.start_date || "Non définie"}</strong>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article className="dashboard-block glass-card">
+            <h3>Vue rapide</h3>
+
+            <div className="card-stats-grid">
+              <div className="mini-stat">
+                <span>Membres</span>
+                <strong>{data.members?.length || 0}</strong>
+              </div>
+
+              <div className="mini-stat">
+                <span>Total collecté</span>
+                <strong>
+                  {Number(data.totals?.total_collected || 0).toLocaleString()} FCFA
+                </strong>
+              </div>
+
+              <div className="mini-stat">
+                <span>Nombre de paiements</span>
+                <strong>{Number(data.totals?.payments_count || 0)}</strong>
+              </div>
+
+              <div className="mini-stat">
+                <span>Prochain bénéficiaire</span>
+                <strong>{data.nextBeneficiary?.full_name || "Non défini"}</strong>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section className="dashboard-grid" style={{ marginTop: "18px" }}>
+          <article className="dashboard-block glass-card">
+            <h3>Ajouter un membre</h3>
+
+            <form className="compact-form" onSubmit={handleAddMember}>
+              <input
+                type="text"
+                placeholder="Nom complet"
+                value={memberForm.fullName}
+                onChange={(e) =>
+                  setMemberForm({ ...memberForm, fullName: e.target.value })
+                }
+              />
+
+              <input
+                type="text"
+                placeholder="Téléphone"
+                value={memberForm.phone}
+                onChange={(e) =>
+                  setMemberForm({ ...memberForm, phone: e.target.value })
+                }
+              />
+
+              <input
+                type="email"
+                placeholder="Email (optionnel)"
+                value={memberForm.email}
+                onChange={(e) =>
+                  setMemberForm({ ...memberForm, email: e.target.value })
+                }
+              />
+
+              <button type="submit" className="primary-action-btn">
+                Ajouter le membre
+              </button>
+            </form>
+          </article>
+
+          <article className="dashboard-block glass-card">
+            <h3>Ajouter un paiement</h3>
+
+            <form className="compact-form" onSubmit={handleAddPayment}>
+              <select
+                value={paymentForm.memberId}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, memberId: e.target.value })
+                }
+              >
+                <option value="">Choisir un membre</option>
+                {data.members?.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.full_name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                placeholder="Montant"
+                value={paymentForm.amount}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, amount: e.target.value })
+                }
+              />
+
+              <input
+                type="date"
+                value={paymentForm.paymentDate}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, paymentDate: e.target.value })
+                }
+              />
+
+              <input
+                type="text"
+                placeholder="Note (optionnelle)"
+                value={paymentForm.note}
+                onChange={(e) =>
+                  setPaymentForm({ ...paymentForm, note: e.target.value })
+                }
+              />
+
+              <button type="submit" className="primary-action-btn">
+                Enregistrer le paiement
+              </button>
+            </form>
+          </article>
+        </section>
+
+        <section className="dashboard-grid" style={{ marginTop: "18px" }}>
+          <article className="dashboard-block glass-card">
+            <h3>Enregistrer une redistribution</h3>
+
+            <form className="compact-form" onSubmit={handleAddPayout}>
+              <select
+                value={payoutForm.beneficiaryMemberId}
+                onChange={(e) =>
+                  setPayoutForm({
+                    ...payoutForm,
+                    beneficiaryMemberId: e.target.value,
+                  })
+                }
+              >
+                <option value="">Choisir le bénéficiaire</option>
+                {data.members?.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.full_name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                placeholder="Libellé du tour (ex: Tour 1)"
+                value={payoutForm.roundLabel}
+                onChange={(e) =>
+                  setPayoutForm({ ...payoutForm, roundLabel: e.target.value })
+                }
+              />
+
+              <input
+                type="number"
+                placeholder="Montant redistribué"
+                value={payoutForm.amount}
+                onChange={(e) =>
+                  setPayoutForm({ ...payoutForm, amount: e.target.value })
+                }
+              />
+
+              <input
+                type="date"
+                value={payoutForm.payoutDate}
+                onChange={(e) =>
+                  setPayoutForm({ ...payoutForm, payoutDate: e.target.value })
+                }
+              />
+
+              <select
+                value={payoutForm.status}
+                onChange={(e) =>
+                  setPayoutForm({ ...payoutForm, status: e.target.value })
+                }
+              >
+                <option value="paid">Payé</option>
+                <option value="pending">En attente</option>
+              </select>
+
+              <button type="submit" className="primary-action-btn">
+                Enregistrer la redistribution
+              </button>
+            </form>
+          </article>
+
+          <article className="dashboard-block glass-card">
+            <h3>Prochain bénéficiaire</h3>
+
+            {data.nextBeneficiary ? (
+              <div className="glass-subcard">
+                <strong style={{ fontSize: "1.2rem" }}>
+                  {data.nextBeneficiary.full_name}
+                </strong>
+                <p className="muted" style={{ marginTop: "8px" }}>
+                  Téléphone : {data.nextBeneficiary.phone || "Non renseigné"}
+                </p>
+                <p className="muted">
+                  Email : {data.nextBeneficiary.email || "Non renseigné"}
+                </p>
+                <p className="muted">
+                  Position : {data.nextBeneficiary.position || "-"}
+                </p>
+              </div>
+            ) : (
+              <p className="muted">Aucun bénéficiaire disponible.</p>
+            )}
+          </article>
+        </section>
+
+        <section className="dashboard-grid" style={{ marginTop: "18px" }}>
+          <article className="dashboard-block glass-card">
+            <h3>Membres</h3>
+
+            <div className="member-status-list">
+              {data.members?.length ? (
+                data.members.map((member) => {
+                  const status = getMemberStatus(member, data.tontine?.amount);
+
+                  return (
+                    <div key={member.id} className="status-row">
+                      <div className="status-left">
+                        <strong>{member.full_name}</strong>
+                        <span>{member.phone || "Téléphone non renseigné"}</span>
+                      </div>
+
+                      <div className="status-center">
+                        <span className={`member-badge ${status.className}`}>
+                          {status.label}
+                        </span>
+                      </div>
+
+                      <div className="status-right">
+                        <strong>
+                          {Number(member.total_paid || 0).toLocaleString()} FCFA
+                        </strong>
+                        <small>{member.payments_count || 0} paiement(s)</small>
+
+                        <div style={{ marginTop: "10px" }}>
+                          <button
+                            type="button"
+                            className="danger-action-btn"
+                            onClick={() => handleDeleteMember(member.id, member.full_name)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="muted">Aucun membre</p>
+              )}
+            </div>
+          </article>
+
+          <article className="dashboard-block glass-card">
+            <h3>Paiements récents</h3>
+
+            <div className="member-status-list">
+              {data.recentPayments?.length ? (
+                data.recentPayments.map((payment) => {
+                  if (editingPaymentId === payment.id) {
+                    return (
+                      <div key={payment.id} className="glass-subcard">
+                        <div className="compact-form">
+                          <select
+                            value={editingPaymentForm.memberId}
+                            onChange={(e) =>
+                              setEditingPaymentForm({
+                                ...editingPaymentForm,
+                                memberId: e.target.value,
+                              })
+                            }
+                          >
+                            <option value="">Choisir un membre</option>
+                            {data.members?.map((member) => (
+                              <option key={member.id} value={member.id}>
+                                {member.full_name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <input
+                            type="number"
+                            placeholder="Montant"
+                            value={editingPaymentForm.amount}
+                            onChange={(e) =>
+                              setEditingPaymentForm({
+                                ...editingPaymentForm,
+                                amount: e.target.value,
+                              })
+                            }
+                          />
+
+                          <input
+                            type="date"
+                            value={editingPaymentForm.paymentDate}
+                            onChange={(e) =>
+                              setEditingPaymentForm({
+                                ...editingPaymentForm,
+                                paymentDate: e.target.value,
+                              })
+                            }
+                          />
+
+                          <input
+                            type="text"
+                            placeholder="Note"
+                            value={editingPaymentForm.note}
+                            onChange={(e) =>
+                              setEditingPaymentForm({
+                                ...editingPaymentForm,
+                                note: e.target.value,
+                              })
+                            }
+                          />
+
+                          <div className="card-footer-split">
+                            <button
+                              type="button"
+                              className="primary-action-btn"
+                              onClick={() => handleUpdatePayment(payment.id)}
+                            >
+                              Enregistrer
+                            </button>
+
+                            <button
+                              type="button"
+                              className="secondary-action-btn"
+                              onClick={cancelEditPayment}
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={payment.id} className="history-row">
+                      <div className="status-left">
+                        <strong>{payment.member_name}</strong>
+                        <span>{payment.payment_date}</span>
+                      </div>
+
+                      <div className="status-right">
+                        <strong>
+                          {Number(payment.amount || 0).toLocaleString()} FCFA
+                        </strong>
+                        <small>{payment.note || "Sans note"}</small>
+
+                        <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            className="secondary-action-btn"
+                            onClick={() => startEditPayment(payment)}
+                          >
+                            Modifier
+                          </button>
+
+                          <button
+                            type="button"
+                            className="danger-action-btn"
+                            onClick={() =>
+                              handleDeletePayment(payment.id, payment.member_name)
+                            }
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="muted">Aucun paiement enregistré.</p>
+              )}
+            </div>
+          </article>
+        </section>
+
+        <section className="dashboard-grid" style={{ marginTop: "18px" }}>
+          <article className="dashboard-block glass-card">
+            <h3>Historique des redistributions</h3>
+
+            <div className="member-status-list">
+              {data.payoutHistory?.length ? (
+                data.payoutHistory.map((item) => {
+                  if (editingPayoutId === item.id) {
+                    return (
+                      <div key={item.id} className="glass-subcard">
+                        <div className="compact-form">
+                          <select
+                            value={editingPayoutForm.beneficiaryMemberId}
+                            onChange={(e) =>
+                              setEditingPayoutForm({
+                                ...editingPayoutForm,
+                                beneficiaryMemberId: e.target.value,
+                              })
+                            }
+                          >
+                            <option value="">Choisir le bénéficiaire</option>
+                            {data.members?.map((member) => (
+                              <option key={member.id} value={member.id}>
+                                {member.full_name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <input
+                            type="text"
+                            placeholder="Libellé du tour"
+                            value={editingPayoutForm.roundLabel}
+                            onChange={(e) =>
+                              setEditingPayoutForm({
+                                ...editingPayoutForm,
+                                roundLabel: e.target.value,
+                              })
+                            }
+                          />
+
+                          <input
+                            type="number"
+                            placeholder="Montant"
+                            value={editingPayoutForm.amount}
+                            onChange={(e) =>
+                              setEditingPayoutForm({
+                                ...editingPayoutForm,
+                                amount: e.target.value,
+                              })
+                            }
+                          />
+
+                          <input
+                            type="date"
+                            value={editingPayoutForm.payoutDate}
+                            onChange={(e) =>
+                              setEditingPayoutForm({
+                                ...editingPayoutForm,
+                                payoutDate: e.target.value,
+                              })
+                            }
+                          />
+
+                          <select
+                            value={editingPayoutForm.status}
+                            onChange={(e) =>
+                              setEditingPayoutForm({
+                                ...editingPayoutForm,
+                                status: e.target.value,
+                              })
+                            }
+                          >
+                            <option value="paid">Payé</option>
+                            <option value="pending">En attente</option>
+                          </select>
+
+                          <div className="card-footer-split">
+                            <button
+                              type="button"
+                              className="primary-action-btn"
+                              onClick={() => handleUpdatePayout(item.id)}
+                            >
+                              Enregistrer
+                            </button>
+
+                            <button
+                              type="button"
+                              className="secondary-action-btn"
+                              onClick={cancelEditPayout}
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={item.id} className="history-row">
+                      <div className="status-left">
+                        <strong>{item.beneficiary_name}</strong>
+                        <span>{item.round_label}</span>
+                      </div>
+
+                      <div className="status-right">
+                        <strong>
+                          {Number(item.amount || 0).toLocaleString()} FCFA
+                        </strong>
+                        <small>{item.payout_date}</small>
+
+                        <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            className="secondary-action-btn"
+                            onClick={() => startEditPayout(item)}
+                          >
+                            Modifier
+                          </button>
+
+                          <button
+                            type="button"
+                            className="danger-action-btn"
+                            onClick={() =>
+                              handleDeletePayout(item.id, item.beneficiary_name)
+                            }
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="muted">Aucune redistribution enregistrée.</p>
+              )}
+            </div>
+          </article>
+        </section>
+
+        {toast && <div className="toast">{toast}</div>}
+      </main>
+    </div>
+  );
+}
