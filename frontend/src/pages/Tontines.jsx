@@ -9,6 +9,7 @@ export default function Tontines() {
   const [tontines, setTontines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
 
   useEffect(() => {
     async function loadTontines() {
@@ -30,50 +31,57 @@ export default function Tontines() {
 
     loadTontines();
   }, []);
-  /**
- * DELETE /api/tontines/:id/members/:memberId
- * Supprimer un membre et ses paiements / redistributions liées
- */
-app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
-  const client = await pool.connect();
 
-  try {
-    const tontineId = Number(req.params.id);
-    const memberId = Number(req.params.memberId);
+  async function handleDeleteTontine(tontineId, tontineName) {
+    const ok = window.confirm(`Supprimer la tontine "${tontineName}" ?`);
+    if (!ok) return;
 
-    await client.query('BEGIN');
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${tontineId}`, {
+        method: "DELETE",
+      });
 
-    await client.query(
-      `DELETE FROM payouts WHERE tontine_id = $1 AND beneficiary_member_id = $2`,
-      [tontineId, memberId]
-    );
+      const result = await response.json();
 
-    await client.query(
-      `DELETE FROM payments WHERE tontine_id = $1 AND member_id = $2`,
-      [tontineId, memberId]
-    );
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la suppression.");
+      }
 
-    const result = await client.query(
-      `DELETE FROM members WHERE tontine_id = $1 AND id = $2 RETURNING id`,
-      [tontineId, memberId]
-    );
+      setTontines((prev) => prev.filter((t) => t.id !== tontineId));
+      setToast("Tontine supprimée avec succès");
 
-    await client.query('COMMIT');
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Membre introuvable.' });
+      setTimeout(() => setToast(""), 2500);
+    } catch (err) {
+      setToast(err.message || "Erreur réseau");
+      setTimeout(() => setToast(""), 2500);
     }
-
-    const dashboard = await buildDashboard(tontineId);
-    res.json(dashboard);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('DELETE /api/tontines/:id/members/:memberId error:', error);
-    res.status(500).json({ message: 'Erreur lors de la suppression du membre.' });
-  } finally {
-    client.release();
   }
-});
+
+  if (loading) {
+    return (
+      <div className="app-shell">
+        <div className="ambient ambient-1" />
+        <div className="ambient ambient-2" />
+        <Navbar />
+        <main className="page-shell">
+          <p className="state-text">Chargement des tontines...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-shell">
+        <div className="ambient ambient-1" />
+        <div className="ambient ambient-2" />
+        <Navbar />
+        <main className="page-shell">
+          <p className="state-text error-text">{error}</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -97,10 +105,7 @@ app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
           </Link>
         </section>
 
-        {loading && <p className="state-text">Chargement des tontines...</p>}
-        {error && <p className="state-text error-text">{error}</p>}
-
-        {!loading && !error && tontines.length === 0 && (
+        {tontines.length === 0 ? (
           <section className="empty-card">
             <h3>Aucune tontine pour le moment</h3>
             <p>Crée ta première tontine pour commencer.</p>
@@ -108,9 +113,7 @@ app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
               Créer une tontine
             </Link>
           </section>
-        )}
-
-        {!loading && !error && tontines.length > 0 && (
+        ) : (
           <section className="tontines-grid">
             {tontines.map((tontine) => (
               <article key={tontine.id} className="tontine-premium-card">
@@ -151,23 +154,28 @@ app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
                   </div>
                 </div>
 
-               <div className="card-footer card-footer-split">
-  <Link to={`/dashboard/${tontine.id}`} className="secondary-action-btn">
-    Ouvrir
-  </Link>
+                <div className="card-footer card-footer-split">
+                  <Link
+                    to={`/dashboard/${tontine.id}`}
+                    className="secondary-action-btn"
+                  >
+                    Ouvrir
+                  </Link>
 
-  <button
-    type="button"
-    className="danger-action-btn"
-    onClick={() => handleDeleteTontine(tontine.id, tontine.name)}
-  >
-    Supprimer
-  </button>
-</div>
+                  <button
+                    type="button"
+                    className="danger-action-btn"
+                    onClick={() => handleDeleteTontine(tontine.id, tontine.name)}
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </article>
             ))}
           </section>
         )}
+
+        {toast && <div className="toast">{toast}</div>}
       </main>
     </div>
   );

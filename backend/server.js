@@ -24,38 +24,6 @@ function mapTontineRow(row) {
 }
 
 /**
- * GET /api/tontines
- * Liste des tontines pour la sidebar / liste
- */
-app.get('/api/tontines', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `
-      SELECT
-        t.id,
-        t.name,
-        t.amount,
-        t.frequency,
-        t.start_date,
-        t.description,
-        COUNT(DISTINCT m.id) AS members_count,
-        COALESCE(SUM(p.amount), 0) AS total_collected
-      FROM tontines t
-      LEFT JOIN members m ON m.tontine_id = t.id
-      LEFT JOIN payments p ON p.tontine_id = t.id
-      GROUP BY t.id
-      ORDER BY t.id DESC
-      `
-    );
-
-    res.json(result.rows.map(mapTontineRow));
-  } catch (error) {
-    console.error('GET /api/tontines error:', error);
-    res.status(500).json({ message: 'Erreur serveur lors du chargement des tontines.' });
-  }
-});
-
-/**
  * Fonction utilitaire dashboard
  */
 async function buildDashboard(tontineId) {
@@ -211,6 +179,65 @@ async function buildDashboard(tontineId) {
 }
 
 /**
+ * GET /
+ */
+app.get('/', (req, res) => {
+  res.send('Backend OK');
+});
+
+/**
+ * GET /health
+ */
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
+/**
+ * GET /api/health
+ */
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT NOW()');
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('GET /api/health error:', error);
+    res.status(500).json({ ok: false, message: 'DB non disponible' });
+  }
+});
+
+/**
+ * GET /api/tontines
+ * Liste des tontines
+ */
+app.get('/api/tontines', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        t.id,
+        t.name,
+        t.amount,
+        t.frequency,
+        t.start_date,
+        t.description,
+        COUNT(DISTINCT m.id) AS members_count,
+        COALESCE(SUM(p.amount), 0) AS total_collected
+      FROM tontines t
+      LEFT JOIN members m ON m.tontine_id = t.id
+      LEFT JOIN payments p ON p.tontine_id = t.id
+      GROUP BY t.id
+      ORDER BY t.id DESC
+      `
+    );
+
+    res.json(result.rows.map(mapTontineRow));
+  } catch (error) {
+    console.error('GET /api/tontines error:', error);
+    res.status(500).json({ message: 'Erreur serveur lors du chargement des tontines.' });
+  }
+});
+
+/**
  * GET /api/tontines/:id
  * Dashboard complet d’une tontine
  */
@@ -241,7 +268,9 @@ app.post('/api/tontines', async (req, res) => {
     const { name, amount, frequency, startDate, description, members } = req.body;
 
     if (!name || !amount || !frequency) {
-      return res.status(400).json({ message: 'Nom, montant et fréquence sont obligatoires.' });
+      return res.status(400).json({
+        message: 'Nom, montant et fréquence sont obligatoires.',
+      });
     }
 
     await client.query('BEGIN');
@@ -294,7 +323,7 @@ app.post('/api/tontines', async (req, res) => {
 
 /**
  * POST /api/tontines/:id/members
- * Ajouter un membre après création
+ * Ajouter un membre
  */
 app.post('/api/tontines/:id/members', async (req, res) => {
   try {
@@ -342,7 +371,9 @@ app.post('/api/tontines/:id/payments', async (req, res) => {
     const { memberId, amount, paymentDate, note } = req.body;
 
     if (!memberId || !amount || !paymentDate) {
-      return res.status(400).json({ message: 'Membre, montant et date sont obligatoires.' });
+      return res.status(400).json({
+        message: 'Membre, montant et date sont obligatoires.',
+      });
     }
 
     await pool.query(
@@ -371,12 +402,21 @@ app.post('/api/tontines/:id/payouts', async (req, res) => {
     const { beneficiaryMemberId, roundLabel, amount, payoutDate, status } = req.body;
 
     if (!beneficiaryMemberId || !roundLabel || !amount || !payoutDate) {
-      return res.status(400).json({ message: 'Bénéficiaire, tour, montant et date sont obligatoires.' });
+      return res.status(400).json({
+        message: 'Bénéficiaire, tour, montant et date sont obligatoires.',
+      });
     }
 
     await pool.query(
       `
-      INSERT INTO payouts (tontine_id, beneficiary_member_id, round_label, amount, payout_date, status)
+      INSERT INTO payouts (
+        tontine_id,
+        beneficiary_member_id,
+        round_label,
+        amount,
+        payout_date,
+        status
+      )
       VALUES ($1, $2, $3, $4, $5, $6)
       `,
       [
@@ -397,25 +437,6 @@ app.post('/api/tontines/:id/payouts', async (req, res) => {
   }
 });
 
-app.get('/api/health', async (req, res) => {
-  try {
-    await pool.query('SELECT NOW()');
-    res.json({ ok: true });
-  } catch (error) {
-    res.status(500).json({ ok: false, message: 'DB non disponible' });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-app.get("/", (req, res) => {
-  res.send("Backend OK");
-});
-
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
-});
 /**
  * DELETE /api/tontines/:id
  * Supprimer une tontine et toutes ses données liées
@@ -463,6 +484,7 @@ app.delete('/api/tontines/:id', async (req, res) => {
     client.release();
   }
 });
+
 /**
  * DELETE /api/tontines/:id/members/:memberId
  * Supprimer un membre et ses paiements / redistributions liées
@@ -491,11 +513,12 @@ app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
       [tontineId, memberId]
     );
 
-    await client.query('COMMIT');
-
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Membre introuvable.' });
     }
+
+    await client.query('COMMIT');
 
     const dashboard = await buildDashboard(tontineId);
     res.json(dashboard);
@@ -506,4 +529,8 @@ app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
