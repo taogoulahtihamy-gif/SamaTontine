@@ -238,15 +238,25 @@ textarea:focus {
 
 .mobile-menu {
   position: fixed;
-  top: 88px;
-  right: 14px;
-  width: min(240px, calc(100vw - 28px));
+  top: 70px; /* aligné avec le header */
+  right: 12px;
+
+  width: min(260px, calc(100vw - 24px));
+
   padding: 14px;
-  border-radius: 22px;
+  border-radius: 20px;
+
   display: flex;
   flex-direction: column;
   gap: 10px;
+
   z-index: 100;
+
+  background: rgba(8, 16, 28, 0.95);
+  backdrop-filter: blur(18px);
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 
 .mobile-menu a {
@@ -791,9 +801,10 @@ textarea:focus {
 
 /* MOBILE */
 @media (min-width: 769px) {
-  .burger-btn {
-    display: none;
-  }
+ .burger-btn {
+  position: relative;
+  z-index: 101; /* au-dessus du menu */
+}
 }
 
 @media (max-width: 1180px) {
