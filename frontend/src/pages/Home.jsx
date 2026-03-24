@@ -1,7 +1,9 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
 function Home() {
+  const navigate = useNavigate();
+
   return (
     <div className="app-shell">
       <div className="ambient ambient-1" />
@@ -21,12 +23,19 @@ function Home() {
             </p>
 
             <div className="hero-actions mobile-hero-actions">
-              <Link to="/create" className="primary-btn">
+              <button
+                className="primary-btn"
+                onClick={() => navigate("/create")}
+              >
                 Créer une tontine
-              </Link>
-              <Link to="/dashboard" className="ghost-btn">
+              </button>
+
+              <button
+                className="ghost-btn"
+                onClick={() => navigate("/dashboard")}
+              >
                 Voir le tableau de bord
-              </Link>
+              </button>
             </div>
           </section>
 
