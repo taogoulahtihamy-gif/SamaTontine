@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
-const API_BASE = "https://samatontine.onrender.com/api";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "https://samatontine.onrender.com/api";
 
 export default function Tontines() {
   const [tontines, setTontines] = useState([]);
@@ -30,35 +32,91 @@ export default function Tontines() {
   }, []);
 
   return (
-    <>
+    <div className="app-shell">
+      <div className="ambient ambient-1" />
+      <div className="ambient ambient-2" />
+
       <Navbar />
+
       <main className="page-shell">
-        <section className="glass-card">
-          <h1>Mes tontines</h1>
+        <section className="list-hero-card">
+          <div>
+            <span className="section-chip">Organisation</span>
+            <h1>Mes tontines</h1>
+            <p>
+              Suis toutes tes tontines, les membres inscrits et le total déjà collecté.
+            </p>
+          </div>
 
-          {loading && <p>Chargement...</p>}
-          {error && <p>{error}</p>}
-
-          {!loading && !error && tontines.length === 0 && (
-            <p>Aucune tontine enregistrée pour le moment.</p>
-          )}
-
-          {!loading && !error && tontines.length > 0 && (
-            <div className="tontines-list">
-              {tontines.map((tontine) => (
-                <div key={tontine.id} className="glass-card" style={{ marginTop: "16px" }}>
-                  <h3>{tontine.name}</h3>
-                  <p>Montant : {tontine.amount} FCFA</p>
-                  <p>Fréquence : {tontine.frequency}</p>
-                  <p>Membres : {tontine.members_count}</p>
-                  <p>Total collecté : {tontine.total_collected} FCFA</p>
-                  {tontine.description && <p>Description : {tontine.description}</p>}
-                </div>
-              ))}
-            </div>
-          )}
+          <Link to="/create" className="primary-action-btn">
+            + Nouvelle tontine
+          </Link>
         </section>
+
+        {loading && <p className="state-text">Chargement des tontines...</p>}
+        {error && <p className="state-text error-text">{error}</p>}
+
+        {!loading && !error && tontines.length === 0 && (
+          <section className="empty-card">
+            <h3>Aucune tontine pour le moment</h3>
+            <p>Crée ta première tontine pour commencer.</p>
+            <Link to="/create" className="primary-action-btn">
+              Créer une tontine
+            </Link>
+          </section>
+        )}
+
+        {!loading && !error && tontines.length > 0 && (
+          <section className="tontines-grid">
+            {tontines.map((tontine) => (
+              <article key={tontine.id} className="tontine-premium-card">
+                <div className="card-head">
+                  <div className="card-title-wrap">
+                    <h3>{tontine.name}</h3>
+                    <p>{tontine.description || "Aucune description ajoutée."}</p>
+                  </div>
+
+                  <span className="frequency-badge">
+                    {tontine.frequency || "Non définie"}
+                  </span>
+                </div>
+
+                <div className="card-stats-grid">
+                  <div className="mini-stat">
+                    <span>Montant</span>
+                    <strong>
+                      {Number(tontine.amount || 0).toLocaleString()} FCFA
+                    </strong>
+                  </div>
+
+                  <div className="mini-stat">
+                    <span>Membres</span>
+                    <strong>{Number(tontine.members_count || 0)}</strong>
+                  </div>
+
+                  <div className="mini-stat">
+                    <span>Total collecté</span>
+                    <strong>
+                      {Number(tontine.total_collected || 0).toLocaleString()} FCFA
+                    </strong>
+                  </div>
+
+                  <div className="mini-stat">
+                    <span>Date de début</span>
+                    <strong>{tontine.start_date || "Non définie"}</strong>
+                  </div>
+                </div>
+
+                <div className="card-footer">
+                  <Link to={`/dashboard/${tontine.id}`} className="secondary-action-btn">
+                    Ouvrir
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
       </main>
-    </>
+    </div>
   );
 }
