@@ -160,6 +160,8 @@ textarea:focus {
 
 /* NAVBAR */
 .navbar-global {
+  position: relative;
+  z-index: 30;
   margin-bottom: 18px;
 }
 
@@ -169,12 +171,19 @@ textarea:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 14px;
 }
 
 .brand-row {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.brand-copy {
+  min-width: 0;
 }
 
 .brand-mark {
@@ -187,15 +196,16 @@ textarea:focus {
   font-size: 1.15rem;
   background: linear-gradient(135deg, var(--primary), var(--primary-2));
   color: #06111e;
+  flex-shrink: 0;
 }
 
-.brand-row strong {
+.brand-copy strong {
   display: block;
   font-size: 1.75rem;
   line-height: 1.1;
 }
 
-.brand-row p,
+.brand-copy p,
 .muted {
   color: var(--muted);
   margin: 4px 0 0;
@@ -217,6 +227,9 @@ textarea:focus {
 }
 
 .burger-btn {
+  position: relative;
+  z-index: 101;
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line);
   color: var(--text);
@@ -226,6 +239,12 @@ textarea:focus {
   font-size: 1.35rem;
   display: grid;
   place-items: center;
+  transition: 0.2s ease;
+}
+
+.burger-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .menu-overlay {
@@ -238,25 +257,20 @@ textarea:focus {
 
 .mobile-menu {
   position: fixed;
-  top: 70px; /* aligné avec le header */
-  right: 12px;
-
-  width: min(260px, calc(100vw - 24px));
-
+  top: 88px;
+  right: 14px;
+  width: min(260px, calc(100vw - 28px));
   padding: 14px;
   border-radius: 20px;
-
   display: flex;
   flex-direction: column;
   gap: 10px;
-
   z-index: 100;
-
   background: rgba(8, 16, 28, 0.95);
   backdrop-filter: blur(18px);
-
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: slideIn 0.2s ease;
 }
 
 .mobile-menu a {
@@ -270,6 +284,17 @@ textarea:focus {
 .mobile-menu a.active-link {
   background: linear-gradient(135deg, rgba(114, 246, 209, 0.12), rgba(140, 168, 255, 0.12));
   border-color: rgba(114, 246, 209, 0.35);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* HERO */
@@ -801,10 +826,9 @@ textarea:focus {
 
 /* MOBILE */
 @media (min-width: 769px) {
- .burger-btn {
-  position: relative;
-  z-index: 101; /* au-dessus du menu */
-}
+  .burger-btn {
+    display: none;
+  }
 }
 
 @media (max-width: 1180px) {
@@ -841,10 +865,13 @@ textarea:focus {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
   }
 
   .brand-row {
     gap: 10px;
+    min-width: 0;
+    flex: 1;
   }
 
   .brand-mark {
@@ -854,17 +881,25 @@ textarea:focus {
     font-size: 1rem;
   }
 
-  .brand-row strong {
+  .brand-copy strong {
     font-size: 1.05rem;
   }
 
-  .brand-row p {
+  .brand-copy p {
     font-size: 0.82rem;
   }
 
+  .burger-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 1.25rem;
+  }
+
   .mobile-menu {
-    top: 82px;
+    top: 76px;
     right: 12px;
+    width: min(240px, calc(100vw - 24px));
   }
 
   .hero-copy,
@@ -895,8 +930,7 @@ textarea:focus {
     grid-template-columns: 1fr !important;
   }
 
-  .hero-actions,
-  .panel-header {
+  .hero-actions {
     flex-direction: column;
     align-items: stretch;
   }
@@ -911,7 +945,6 @@ textarea:focus {
   }
 
   .card-head,
-  .topbar,
   .section-inline-head,
   .progress-head {
     flex-direction: column;
@@ -969,20 +1002,12 @@ textarea:focus {
   .stat-card strong {
     font-size: 1.1rem;
   }
-}
-.brand-copy {
-  min-width: 0;
-}
 
-.brand-copy strong {
-  display: block;
-}
-
-.brand-copy p {
-  margin: 4px 0 0;
-}
-@media (max-width: 520px) {
   .brand-copy p {
     display: none;
+  }
+
+  .mobile-menu {
+    top: 72px;
   }
 }
