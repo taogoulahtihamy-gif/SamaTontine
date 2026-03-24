@@ -86,28 +86,29 @@ app.post("/api/admin/login", async (req, res) => {
     const { password } = req.body;
 
     if (!password) {
-      return res.status(400).json({ message: "Mot de passe requis." });
+      return res.status(400).json({ message: "Mot de passe requis" });
     }
 
-    await ensureAdminTable();
-
+    // 🔥 lire depuis la DB
     const result = await pool.query(
-      `SELECT password FROM admin_settings LIMIT 1`
+      "SELECT password FROM admin_settings LIMIT 1"
     );
 
     const savedPassword = result.rows[0]?.password;
 
-    if (password !== savedPassword) {
-      return res.status(401).json({ message: "Mot de passe incorrect." });
+    if (!savedPassword) {
+      return res.status(500).json({ message: "Admin non configuré" });
     }
 
-    res.json({
-      ok: true,
-      token: ADMIN_TOKEN,
-    });
+    if (password !== savedPassword) {
+      return res.status(401).json({ message: "Mot de passe incorrect" });
+    }
+
+    res.json({ token: process.env.ADMIN_TOKEN });
+
   } catch (error) {
-    console.error("POST /api/admin/login error:", error);
-    res.status(500).json({ message: "Erreur lors de la connexion admin." });
+    console.error("LOGIN ERROR:", error);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
