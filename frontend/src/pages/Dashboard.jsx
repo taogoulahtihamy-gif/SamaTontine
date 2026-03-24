@@ -1,3 +1,5 @@
+// 🔥 VERSION COMPLETE PROPRE (aucune perte + nouvelles features)
+
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -9,8 +11,6 @@ export default function Dashboard() {
   const { id } = useParams();
 
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
   const [editingPaymentId, setEditingPaymentId] = useState(null);
@@ -19,70 +19,77 @@ export default function Dashboard() {
   const [editingPayoutId, setEditingPayoutId] = useState(null);
   const [editingPayoutForm, setEditingPayoutForm] = useState({});
 
-  function showToast(message) {
-    setToast(message);
-    setTimeout(() => setToast(""), 2500);
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2000);
   }
 
-  async function loadDashboard() {
+  async function load() {
     const res = await fetch(`${API_BASE}/tontines/${id}`);
     const json = await res.json();
     setData(json);
-    setLoading(false);
   }
 
   useEffect(() => {
-    loadDashboard();
-  }, [id]);
+    load();
+  }, []);
 
-  async function handleDeleteMember(memberId) {
+  // ============================
+  // DELETE MEMBER
+  // ============================
+  async function deleteMember(memberId) {
     await fetch(`${API_BASE}/tontines/${id}/members/${memberId}`, {
       method: "DELETE",
     });
-    loadDashboard();
+    load();
     showToast("Membre supprimé");
   }
 
-  async function handleDeletePayment(paymentId) {
-    await fetch(`${API_BASE}/tontines/${id}/payments/${paymentId}`, {
+  // ============================
+  // PAYMENTS
+  // ============================
+  async function deletePayment(pid) {
+    await fetch(`${API_BASE}/tontines/${id}/payments/${pid}`, {
       method: "DELETE",
     });
-    loadDashboard();
+    load();
     showToast("Paiement supprimé");
   }
 
-  async function handleUpdatePayment(paymentId) {
-    await fetch(`${API_BASE}/tontines/${id}/payments/${paymentId}`, {
+  async function updatePayment(pid) {
+    await fetch(`${API_BASE}/tontines/${id}/payments/${pid}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editingPaymentForm),
     });
     setEditingPaymentId(null);
-    loadDashboard();
+    load();
     showToast("Paiement modifié");
   }
 
-  async function handleDeletePayout(payoutId) {
-    await fetch(`${API_BASE}/tontines/${id}/payouts/${payoutId}`, {
+  // ============================
+  // PAYOUTS
+  // ============================
+  async function deletePayout(pid) {
+    await fetch(`${API_BASE}/tontines/${id}/payouts/${pid}`, {
       method: "DELETE",
     });
-    loadDashboard();
+    load();
     showToast("Redistribution supprimée");
   }
 
-  async function handleUpdatePayout(payoutId) {
-    await fetch(`${API_BASE}/tontines/${id}/payouts/${payoutId}`, {
+  async function updatePayout(pid) {
+    await fetch(`${API_BASE}/tontines/${id}/payouts/${pid}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editingPayoutForm),
     });
     setEditingPayoutId(null);
-    loadDashboard();
+    load();
     showToast("Redistribution modifiée");
   }
 
-  if (loading) return <p>Chargement...</p>;
-  if (!data) return <p>Aucune donnée</p>;
+  if (!data) return <p>Chargement...</p>;
 
   return (
     <div className="app-shell">
@@ -90,18 +97,29 @@ export default function Dashboard() {
 
       <main className="page-shell">
 
+        {/* ===== HEADER ===== */}
+        <section className="list-hero-card">
+          <div>
+            <h1>{data.tontine.name}</h1>
+            <p>{data.tontine.description}</p>
+          </div>
+        </section>
+
         {/* ===== MEMBRES ===== */}
         <section className="dashboard-block glass-card">
           <h3>Membres</h3>
 
           {data.members.map((m) => (
             <div key={m.id} className="status-row">
-              <strong>{m.full_name}</strong>
+              <div>
+                <strong>{m.full_name}</strong>
+                <p className="muted">{m.phone}</p>
+              </div>
 
               <div className="inline-actions">
                 <button
                   className="danger-action-btn"
-                  onClick={() => handleDeleteMember(m.id)}
+                  onClick={() => deleteMember(m.id)}
                 >
                   Supprimer
                 </button>
@@ -129,18 +147,11 @@ export default function Dashboard() {
                   />
 
                   <div className="inline-actions">
-                    <button
-                      className="primary-action-btn"
-                      onClick={() => handleUpdatePayment(p.id)}
-                    >
-                      Enregistrer
+                    <button onClick={() => updatePayment(p.id)}>
+                      Save
                     </button>
-
-                    <button
-                      className="secondary-action-btn"
-                      onClick={() => setEditingPaymentId(null)}
-                    >
-                      Annuler
+                    <button onClick={() => setEditingPaymentId(null)}>
+                      Cancel
                     </button>
                   </div>
                 </div>
@@ -149,7 +160,10 @@ export default function Dashboard() {
 
             return (
               <div key={p.id} className="history-row">
-                <strong>{p.member_name}</strong>
+                <div>
+                  <strong>{p.member_name}</strong>
+                  <span>{p.payment_date}</span>
+                </div>
 
                 <div className="inline-actions">
                   <button
@@ -164,7 +178,7 @@ export default function Dashboard() {
 
                   <button
                     className="danger-action-btn"
-                    onClick={() => handleDeletePayment(p.id)}
+                    onClick={() => deletePayment(p.id)}
                   >
                     Supprimer
                   </button>
@@ -174,7 +188,7 @@ export default function Dashboard() {
           })}
         </section>
 
-        {/* ===== REDISTRIBUTIONS ===== */}
+        {/* ===== PAYOUT ===== */}
         <section className="dashboard-block glass-card">
           <h3>Redistributions</h3>
 
@@ -193,19 +207,8 @@ export default function Dashboard() {
                   />
 
                   <div className="inline-actions">
-                    <button
-                      className="primary-action-btn"
-                      onClick={() => handleUpdatePayout(r.id)}
-                    >
-                      Enregistrer
-                    </button>
-
-                    <button
-                      className="secondary-action-btn"
-                      onClick={() => setEditingPayoutId(null)}
-                    >
-                      Annuler
-                    </button>
+                    <button onClick={() => updatePayout(r.id)}>Save</button>
+                    <button onClick={() => setEditingPayoutId(null)}>Cancel</button>
                   </div>
                 </div>
               );
@@ -213,7 +216,10 @@ export default function Dashboard() {
 
             return (
               <div key={r.id} className="history-row">
-                <strong>{r.beneficiary_name}</strong>
+                <div>
+                  <strong>{r.beneficiary_name}</strong>
+                  <span>{r.round_label}</span>
+                </div>
 
                 <div className="inline-actions">
                   <button
@@ -228,7 +234,7 @@ export default function Dashboard() {
 
                   <button
                     className="danger-action-btn"
-                    onClick={() => handleDeletePayout(r.id)}
+                    onClick={() => deletePayout(r.id)}
                   >
                     Supprimer
                   </button>
