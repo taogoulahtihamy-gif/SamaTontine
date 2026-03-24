@@ -26,6 +26,14 @@ export default function Dashboard() {
     note: "",
   });
 
+  const [payoutForm, setPayoutForm] = useState({
+    beneficiaryMemberId: "",
+    roundLabel: "",
+    amount: "",
+    payoutDate: "",
+    status: "paid",
+  });
+
   async function loadDashboard() {
     try {
       setLoading(true);
@@ -48,6 +56,11 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboard();
   }, [id]);
+
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(""), 2500);
+  }
 
   async function handleAddMember(e) {
     e.preventDefault();
@@ -73,12 +86,10 @@ export default function Dashboard() {
         email: "",
       });
 
-      setToast("Membre ajouté avec succès");
       setData(result);
-      setTimeout(() => setToast(""), 2500);
+      showToast("Membre ajouté avec succès");
     } catch (err) {
-      setToast(err.message || "Erreur réseau");
-      setTimeout(() => setToast(""), 2500);
+      showToast(err.message || "Erreur réseau");
     }
   }
 
@@ -107,12 +118,43 @@ export default function Dashboard() {
         note: "",
       });
 
-      setToast("Paiement enregistré avec succès");
       setData(result);
-      setTimeout(() => setToast(""), 2500);
+      showToast("Paiement enregistré avec succès");
     } catch (err) {
-      setToast(err.message || "Erreur réseau");
-      setTimeout(() => setToast(""), 2500);
+      showToast(err.message || "Erreur réseau");
+    }
+  }
+
+  async function handleAddPayout(e) {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/payouts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payoutForm),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la redistribution.");
+      }
+
+      setPayoutForm({
+        beneficiaryMemberId: "",
+        roundLabel: "",
+        amount: "",
+        payoutDate: "",
+        status: "paid",
+      });
+
+      setData(result);
+      showToast("Redistribution enregistrée avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
     }
   }
 
@@ -295,6 +337,94 @@ export default function Dashboard() {
 
             <section className="dashboard-grid" style={{ marginTop: "18px" }}>
               <article className="dashboard-block glass-card">
+                <h3>Enregistrer une redistribution</h3>
+
+                <form className="compact-form" onSubmit={handleAddPayout}>
+                  <select
+                    value={payoutForm.beneficiaryMemberId}
+                    onChange={(e) =>
+                      setPayoutForm({
+                        ...payoutForm,
+                        beneficiaryMemberId: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="">Choisir le bénéficiaire</option>
+                    {data.members?.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.full_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Libellé du tour (ex: Tour 1)"
+                    value={payoutForm.roundLabel}
+                    onChange={(e) =>
+                      setPayoutForm({ ...payoutForm, roundLabel: e.target.value })
+                    }
+                  />
+
+                  <input
+                    type="number"
+                    placeholder="Montant redistribué"
+                    value={payoutForm.amount}
+                    onChange={(e) =>
+                      setPayoutForm({ ...payoutForm, amount: e.target.value })
+                    }
+                  />
+
+                  <input
+                    type="date"
+                    value={payoutForm.payoutDate}
+                    onChange={(e) =>
+                      setPayoutForm({ ...payoutForm, payoutDate: e.target.value })
+                    }
+                  />
+
+                  <select
+                    value={payoutForm.status}
+                    onChange={(e) =>
+                      setPayoutForm({ ...payoutForm, status: e.target.value })
+                    }
+                  >
+                    <option value="paid">Payé</option>
+                    <option value="pending">En attente</option>
+                  </select>
+
+                  <button type="submit" className="primary-action-btn">
+                    Enregistrer la redistribution
+                  </button>
+                </form>
+              </article>
+
+              <article className="dashboard-block glass-card">
+                <h3>Prochain bénéficiaire</h3>
+
+                {data.nextBeneficiary ? (
+                  <div className="glass-subcard">
+                    <strong style={{ fontSize: "1.2rem" }}>
+                      {data.nextBeneficiary.full_name}
+                    </strong>
+                    <p className="muted" style={{ marginTop: "8px" }}>
+                      Téléphone : {data.nextBeneficiary.phone || "Non renseigné"}
+                    </p>
+                    <p className="muted">
+                      Email : {data.nextBeneficiary.email || "Non renseigné"}
+                    </p>
+                    <p className="muted">
+                      Position : {data.nextBeneficiary.position || "-"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="muted">Aucun bénéficiaire disponible.</p>
+                )}
+              </article>
+            </section>
+
+            <section className="dashboard-grid" style={{ marginTop: "18px" }}>
+              <article className="dashboard-block glass-card">
                 <h3>Membres</h3>
 
                 <div className="member-status-list">
@@ -372,29 +502,6 @@ export default function Dashboard() {
                     <p className="muted">Aucune redistribution enregistrée.</p>
                   )}
                 </div>
-              </article>
-
-              <article className="dashboard-block glass-card">
-                <h3>Prochain bénéficiaire</h3>
-
-                {data.nextBeneficiary ? (
-                  <div className="glass-subcard">
-                    <strong style={{ fontSize: "1.2rem" }}>
-                      {data.nextBeneficiary.full_name}
-                    </strong>
-                    <p className="muted" style={{ marginTop: "8px" }}>
-                      Téléphone : {data.nextBeneficiary.phone || "Non renseigné"}
-                    </p>
-                    <p className="muted">
-                      Email : {data.nextBeneficiary.email || "Non renseigné"}
-                    </p>
-                    <p className="muted">
-                      Position : {data.nextBeneficiary.position || "-"}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="muted">Aucun bénéficiaire disponible.</p>
-                )}
               </article>
             </section>
           </>
