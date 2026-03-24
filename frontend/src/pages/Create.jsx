@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000/api";
-
+console.log("VITE_API_BASE =", import.meta.env.VITE_API_BASE);
+console.log("API_BASE =", API_BASE);
 const emptyMember = () => ({
   fullName: "",
   phone: "",
