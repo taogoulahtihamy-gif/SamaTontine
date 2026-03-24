@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const crypto = require("crypto");
 const pool = require("./db");
 
 const app = express();
@@ -9,6 +10,22 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || crypto.randomBytes(32).toString("hex");
+
+function requireAdmin(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : req.headers["x-admin-token"];
+
+  if (!token || token !== ADMIN_TOKEN) {
+    return res.status(401).json({ message: "Accès non autorisé." });
+  }
+
+  next();
+}
 
 function mapTontineRow(row) {
   return {
@@ -42,6 +59,32 @@ async function buildDashboard(tontineId) {
   if (tontineResult.rows.length === 0) {
     return null;
   }
+
+  const jwt = require("jsonwebtoken");
+
+const ADMIN_EMAIL = "admin@test.com";
+const ADMIN_PASSWORD = "123456";
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ message: "Identifiants incorrects" });
+    }
+
+    const token = jwt.sign(
+      { role: "admin" },
+      process.env.JWT_SECRET || "secret123",
+      { expiresIn: "1d" }
+    );
+
+    res.json({ token });
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
 
   const tontine = tontineResult.rows[0];
 
@@ -177,6 +220,7 @@ async function buildDashboard(tontineId) {
   };
 }
 
+
 /* =========================
    ROOT / HEALTH
 ========================= */
@@ -196,6 +240,32 @@ app.get("/api/health", async (req, res) => {
   } catch (error) {
     console.error("GET /api/health error:", error);
     res.status(500).json({ ok: false, message: "DB non disponible" });
+  }
+});
+
+/* =========================
+   AUTH ADMIN
+========================= */
+
+app.post("/api/admin/login", (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ message: "Mot de passe requis." });
+    }
+
+    if (password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ message: "Mot de passe incorrect." });
+    }
+
+    res.json({
+      ok: true,
+      token: ADMIN_TOKEN,
+    });
+  } catch (error) {
+    console.error("POST /api/admin/login error:", error);
+    res.status(500).json({ message: "Erreur lors de la connexion admin." });
   }
 });
 
@@ -251,7 +321,7 @@ app.get("/api/tontines/:id", async (req, res) => {
   }
 });
 
-app.post("/api/tontines", async (req, res) => {
+app.post("/api/tontines", requireAdmin, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -311,7 +381,7 @@ app.post("/api/tontines", async (req, res) => {
   }
 });
 
-app.put("/api/tontines/:id", async (req, res) => {
+app.put("/api/tontines/:id", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const { name, amount, frequency, startDate, description } = req.body;
@@ -355,7 +425,7 @@ app.put("/api/tontines/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/tontines/:id", async (req, res) => {
+app.delete("/api/tontines/:id", requireAdmin, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -392,7 +462,7 @@ app.delete("/api/tontines/:id", async (req, res) => {
    MEMBERS
 ========================= */
 
-app.post("/api/tontines/:id/members", async (req, res) => {
+app.post("/api/tontines/:id/members", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const { fullName, phone, email } = req.body;
@@ -428,7 +498,7 @@ app.post("/api/tontines/:id/members", async (req, res) => {
   }
 });
 
-app.put("/api/tontines/:id/members/:memberId", async (req, res) => {
+app.put("/api/tontines/:id/members/:memberId", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const memberId = Number(req.params.memberId);
@@ -462,7 +532,7 @@ app.put("/api/tontines/:id/members/:memberId", async (req, res) => {
   }
 });
 
-app.delete("/api/tontines/:id/members/:memberId", async (req, res) => {
+app.delete("/api/tontines/:id/members/:memberId", requireAdmin, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -508,7 +578,7 @@ app.delete("/api/tontines/:id/members/:memberId", async (req, res) => {
    PAYMENTS
 ========================= */
 
-app.post("/api/tontines/:id/payments", async (req, res) => {
+app.post("/api/tontines/:id/payments", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const { memberId, amount, paymentDate, note } = req.body;
@@ -535,7 +605,7 @@ app.post("/api/tontines/:id/payments", async (req, res) => {
   }
 });
 
-app.put("/api/tontines/:id/payments/:paymentId", async (req, res) => {
+app.put("/api/tontines/:id/payments/:paymentId", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const paymentId = Number(req.params.paymentId);
@@ -579,7 +649,7 @@ app.put("/api/tontines/:id/payments/:paymentId", async (req, res) => {
   }
 });
 
-app.delete("/api/tontines/:id/payments/:paymentId", async (req, res) => {
+app.delete("/api/tontines/:id/payments/:paymentId", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const paymentId = Number(req.params.paymentId);
@@ -609,7 +679,7 @@ app.delete("/api/tontines/:id/payments/:paymentId", async (req, res) => {
    PAYOUTS
 ========================= */
 
-app.post("/api/tontines/:id/payouts", async (req, res) => {
+app.post("/api/tontines/:id/payouts", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const { beneficiaryMemberId, roundLabel, amount, payoutDate, status } = req.body;
@@ -650,7 +720,7 @@ app.post("/api/tontines/:id/payouts", async (req, res) => {
   }
 });
 
-app.put("/api/tontines/:id/payouts/:payoutId", async (req, res) => {
+app.put("/api/tontines/:id/payouts/:payoutId", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const payoutId = Number(req.params.payoutId);
@@ -696,7 +766,7 @@ app.put("/api/tontines/:id/payouts/:payoutId", async (req, res) => {
   }
 });
 
-app.delete("/api/tontines/:id/payouts/:payoutId", async (req, res) => {
+app.delete("/api/tontines/:id/payouts/:payoutId", requireAdmin, async (req, res) => {
   try {
     const tontineId = Number(req.params.id);
     const payoutId = Number(req.params.payoutId);
