@@ -13,7 +13,23 @@ app.use(express.json());
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || crypto.randomBytes(32).toString("hex");
+async function ensureAdminTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_settings (
+      id SERIAL PRIMARY KEY,
+      password TEXT NOT NULL
+    )
+  `);
 
+  const existing = await pool.query(`SELECT id FROM admin_settings LIMIT 1`);
+
+  if (existing.rows.length === 0) {
+    await pool.query(
+      `INSERT INTO admin_settings (password) VALUES ($1)`,
+      [ADMIN_PASSWORD]
+    );
+  }
+}
 function requireAdmin(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ")
@@ -65,24 +81,75 @@ async function buildDashboard(tontineId) {
 const ADMIN_EMAIL = "admin@test.com";
 const ADMIN_PASSWORD = "123456";
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/admin/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
 
-    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-      return res.status(401).json({ message: "Identifiants incorrects" });
+    if (!password) {
+      return res.status(400).json({ message: "Mot de passe requis." });
     }
 
-    const token = jwt.sign(
-      { role: "admin" },
-      process.env.JWT_SECRET || "secret123",
-      { expiresIn: "1d" }
+    await ensureAdminTable();
+
+    const result = await pool.query(
+      `SELECT password FROM admin_settings LIMIT 1`
     );
 
-    res.json({ token });
+    const savedPassword = result.rows[0]?.password;
+
+    if (password !== savedPassword) {
+      return res.status(401).json({ message: "Mot de passe incorrect." });
+    }
+
+    res.json({
+      ok: true,
+      token: ADMIN_TOKEN,
+    });
   } catch (error) {
-    console.error("LOGIN ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur" });
+    console.error("POST /api/admin/login error:", error);
+    res.status(500).json({ message: "Erreur lors de la connexion admin." });
+  }
+});
+
+app.put("/api/admin/change-password", async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Champs requis manquants." });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "Le nouveau mot de passe doit contenir au moins 6 caractères.",
+      });
+    }
+
+    await ensureAdminTable();
+
+    const result = await pool.query(
+      `SELECT id, password FROM admin_settings LIMIT 1`
+    );
+
+    const adminRow = result.rows[0];
+
+    if (!adminRow) {
+      return res.status(500).json({ message: "Configuration admin introuvable." });
+    }
+
+    if (currentPassword !== adminRow.password) {
+      return res.status(401).json({ message: "Mot de passe actuel incorrect." });
+    }
+
+    await pool.query(
+      `UPDATE admin_settings SET password = $1 WHERE id = $2`,
+      [newPassword, adminRow.id]
+    );
+
+    res.json({ ok: true, message: "Mot de passe modifié avec succès." });
+  } catch (error) {
+    console.error("PUT /api/admin/change-password error:", error);
+    res.status(500).json({ message: "Erreur lors du changement de mot de passe." });
   }
 });
 

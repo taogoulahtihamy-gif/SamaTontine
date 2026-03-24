@@ -1,33 +1,82 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const closeMenu = () => setMenuOpen(false);
+  const isAdmin = !!localStorage.getItem("adminToken");
 
-  useEffect(() => {
+  function closeMenu() {
     setMenuOpen(false);
-  }, [location.pathname]);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("adminToken");
+    closeMenu();
+    navigate("/login-admin");
+  }
 
   return (
-    <header className="navbar-global">
-      <nav className="topbar glass-card">
+    <>
+      <nav className="topbar glass-card navbar-global">
         <div className="brand-row">
           <div className="brand-mark">S</div>
+
           <div className="brand-copy">
             <strong>SamaTontine</strong>
             <p>Gestion premium de tontines au Sénégal</p>
           </div>
         </div>
 
+        <div className="desktop-nav-actions">
+          <Link
+            to="/"
+            className={location.pathname === "/" ? "nav-link active-nav-link" : "nav-link"}
+          >
+            Accueil
+          </Link>
+
+          <Link
+            to="/tontines"
+            className={location.pathname === "/tontines" ? "nav-link active-nav-link" : "nav-link"}
+          >
+            Tontines
+          </Link>
+
+          {isAdmin ? (
+            <>
+              <Link
+                to="/create"
+                className={location.pathname === "/create" ? "nav-link active-nav-link" : "nav-link"}
+              >
+                Créer
+              </Link>
+
+              <button
+                type="button"
+                className="secondary-action-btn nav-logout-btn"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login-admin"
+              className={location.pathname === "/login-admin" ? "primary-action-btn" : "secondary-action-btn"}
+            >
+              Admin
+            </Link>
+          )}
+        </div>
+
         <button
-          type="button"
           className="burger-btn"
-          onClick={() => setMenuOpen((prev) => !prev)}
-          aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
-          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Ouvrir le menu"
+          type="button"
         >
           ☰
         </button>
@@ -35,12 +84,7 @@ function Navbar() {
 
       {menuOpen && (
         <>
-          <button
-            type="button"
-            className="menu-overlay"
-            onClick={closeMenu}
-            aria-label="Fermer le menu"
-          />
+          <div className="menu-overlay" onClick={closeMenu}></div>
 
           <div className="mobile-menu glass-card">
             <Link
@@ -59,32 +103,37 @@ function Navbar() {
               Tontines
             </Link>
 
-            <Link
-              to="/create"
-              onClick={closeMenu}
-              className={location.pathname === "/create" ? "active-link" : ""}
-            >
-              Créer
-            </Link>
+            {isAdmin ? (
+              <>
+                <Link
+                  to="/create"
+                  onClick={closeMenu}
+                  className={location.pathname === "/create" ? "active-link" : ""}
+                >
+                  Créer
+                </Link>
 
-            <Link
-              to="/tontines"
-              onClick={closeMenu}
-              className={location.pathname.startsWith("/dashboard") ? "active-link" : ""}
-            >
-              Dashboard
-            </Link>
-
-           <Link to="/login-admin"
-             onClick={closeMenu}
-              className={location.pathname === "/login-admin" ? "active-link" : ""}
-           
-           >Admin</Link>
-
+                <button
+                  type="button"
+                  className="mobile-menu-btn"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login-admin"
+                onClick={closeMenu}
+                className={location.pathname === "/login-admin" ? "active-link" : ""}
+              >
+                Admin
+              </Link>
+            )}
           </div>
         </>
       )}
-    </header>
+    </>
   );
 }
 
