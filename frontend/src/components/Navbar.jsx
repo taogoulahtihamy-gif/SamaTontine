@@ -68,9 +68,9 @@ function Navbar() {
             </Link>
 
             <Link
-              to="/dashboard"
+              to="/tontines"
               onClick={closeMenu}
-              className={location.pathname === "/dashboard" ? "active-link" : ""}
+              className={location.pathname.startsWith("/dashboard") ? "active-link" : ""}
             >
               Dashboard
             </Link>
