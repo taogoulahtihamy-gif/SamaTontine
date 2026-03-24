@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
@@ -11,9 +11,16 @@ export default function Tontines() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
+  const isAdmin = useMemo(() => {
+    return !!localStorage.getItem("adminToken");
+  }, []);
+
   useEffect(() => {
     async function loadTontines() {
       try {
+        setLoading(true);
+        setError("");
+
         const response = await fetch(`${API_BASE}/tontines`);
         const data = await response.json();
 
@@ -32,13 +39,27 @@ export default function Tontines() {
     loadTontines();
   }, []);
 
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(""), 2500);
+  }
+
   async function handleDeleteTontine(tontineId, tontineName) {
     const ok = window.confirm(`Supprimer la tontine "${tontineName}" ?`);
     if (!ok) return;
 
     try {
+      const token = localStorage.getItem("adminToken");
+
+      if (!token) {
+        throw new Error("Connexion admin requise.");
+      }
+
       const response = await fetch(`${API_BASE}/tontines/${tontineId}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       const result = await response.json();
@@ -48,12 +69,9 @@ export default function Tontines() {
       }
 
       setTontines((prev) => prev.filter((t) => t.id !== tontineId));
-      setToast("Tontine supprimée avec succès");
-
-      setTimeout(() => setToast(""), 2500);
+      showToast("Tontine supprimée avec succès");
     } catch (err) {
-      setToast(err.message || "Erreur réseau");
-      setTimeout(() => setToast(""), 2500);
+      showToast(err.message || "Erreur réseau");
     }
   }
 
@@ -100,18 +118,31 @@ export default function Tontines() {
             </p>
           </div>
 
-          <Link to="/create" className="primary-action-btn">
-            + Nouvelle tontine
-          </Link>
+          {isAdmin ? (
+            <Link to="/create" className="primary-action-btn">
+              + Nouvelle tontine
+            </Link>
+          ) : (
+            <Link to="/login-admin" className="primary-action-btn">
+              Connexion admin
+            </Link>
+          )}
         </section>
 
         {tontines.length === 0 ? (
           <section className="empty-card">
             <h3>Aucune tontine pour le moment</h3>
             <p>Crée ta première tontine pour commencer.</p>
-            <Link to="/create" className="primary-action-btn">
-              Créer une tontine
-            </Link>
+
+            {isAdmin ? (
+              <Link to="/create" className="primary-action-btn">
+                Créer une tontine
+              </Link>
+            ) : (
+              <Link to="/login-admin" className="primary-action-btn">
+                Connexion admin
+              </Link>
+            )}
           </section>
         ) : (
           <section className="tontines-grid">
@@ -155,20 +186,28 @@ export default function Tontines() {
                 </div>
 
                 <div className="card-footer card-footer-split">
-                  <Link
-                    to={`/dashboard/${tontine.id}`}
-                    className="secondary-action-btn"
-                  >
-                    Ouvrir
-                  </Link>
+                  {isAdmin ? (
+                    <Link
+                      to={`/dashboard/${tontine.id}`}
+                      className="secondary-action-btn"
+                    >
+                      Ouvrir
+                    </Link>
+                  ) : (
+                    <Link to="/login-admin" className="secondary-action-btn">
+                      Connexion admin
+                    </Link>
+                  )}
 
-                  <button
-                    type="button"
-                    className="danger-action-btn"
-                    onClick={() => handleDeleteTontine(tontine.id, tontine.name)}
-                  >
-                    Supprimer
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="danger-action-btn"
+                      onClick={() => handleDeleteTontine(tontine.id, tontine.name)}
+                    >
+                      Supprimer
+                    </button>
+                  )}
                 </div>
               </article>
             ))}
