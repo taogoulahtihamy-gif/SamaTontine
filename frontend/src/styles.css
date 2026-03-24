@@ -1067,23 +1067,39 @@ textarea:focus {
   margin-top: 10px;
 }
 
+.inline-actions .primary-action-btn,
 .inline-actions .secondary-action-btn,
-.inline-actions .danger-action-btn,
-.inline-actions .primary-action-btn {
+.inline-actions .danger-action-btn {
   min-height: 40px;
   padding: 10px 14px;
   font-size: 0.86rem;
 }
 
+.card-footer-split {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.card-footer-split .primary-action-btn,
+.card-footer-split .secondary-action-btn {
+  flex: 1;
+  min-width: 140px;
+}
+
 @media (max-width: 768px) {
-  .inline-actions {
+  .inline-actions,
+  .card-footer-split {
     flex-direction: column;
     align-items: stretch;
   }
 
+  .inline-actions .primary-action-btn,
   .inline-actions .secondary-action-btn,
   .inline-actions .danger-action-btn,
-  .inline-actions .primary-action-btn {
+  .card-footer-split .primary-action-btn,
+  .card-footer-split .secondary-action-btn {
     width: 100%;
   }
 }
