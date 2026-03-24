@@ -151,11 +151,19 @@ app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
                   </div>
                 </div>
 
-                <div className="card-footer">
-                  <Link to={`/dashboard/${tontine.id}`} className="secondary-action-btn">
-                    Ouvrir
-                  </Link>
-                </div>
+               <div className="card-footer card-footer-split">
+  <Link to={`/dashboard/${tontine.id}`} className="secondary-action-btn">
+    Ouvrir
+  </Link>
+
+  <button
+    type="button"
+    className="danger-action-btn"
+    onClick={() => handleDeleteTontine(tontine.id, tontine.name)}
+  >
+    Supprimer
+  </button>
+</div>
               </article>
             ))}
           </section>
