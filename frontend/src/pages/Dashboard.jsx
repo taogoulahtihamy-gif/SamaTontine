@@ -112,6 +112,28 @@ export default function Dashboard() {
     }
   }
 
+  async function handleDeleteMember(memberId, fullName) {
+    const ok = window.confirm(`Supprimer le membre "${fullName}" ?`);
+    if (!ok) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/members/${memberId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la suppression du membre.");
+      }
+
+      setData(result);
+      showToast("Membre supprimé avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
+    }
+  }
+
   async function handleAddPayment(e) {
     e.preventDefault();
 
@@ -139,6 +161,31 @@ export default function Dashboard() {
 
       setData(result);
       showToast("Paiement enregistré avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
+    }
+  }
+
+  async function handleDeletePayment(paymentId, memberName) {
+    const ok = window.confirm(`Supprimer le paiement de "${memberName}" ?`);
+    if (!ok) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/tontines/${id}/payments/${paymentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la suppression du paiement.");
+      }
+
+      setData(result);
+      showToast("Paiement supprimé avec succès");
     } catch (err) {
       showToast(err.message || "Erreur réseau");
     }
@@ -177,23 +224,26 @@ export default function Dashboard() {
     }
   }
 
-  async function handleDeleteMember(memberId, fullName) {
-    const ok = window.confirm(`Supprimer le membre "${fullName}" ?`);
+  async function handleDeletePayout(payoutId, beneficiaryName) {
+    const ok = window.confirm(`Supprimer la redistribution de "${beneficiaryName}" ?`);
     if (!ok) return;
 
     try {
-      const response = await fetch(`${API_BASE}/tontines/${id}/members/${memberId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${API_BASE}/tontines/${id}/payouts/${payoutId}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Erreur lors de la suppression du membre.");
+        throw new Error(result.message || "Erreur lors de la suppression de la redistribution.");
       }
 
       setData(result);
-      showToast("Membre supprimé avec succès");
+      showToast("Redistribution supprimée avec succès");
     } catch (err) {
       showToast(err.message || "Erreur réseau");
     }
@@ -567,6 +617,18 @@ export default function Dashboard() {
                         {Number(payment.amount || 0).toLocaleString()} FCFA
                       </strong>
                       <small>{payment.note || "Sans note"}</small>
+
+                      <div style={{ marginTop: "10px" }}>
+                        <button
+                          type="button"
+                          className="danger-action-btn"
+                          onClick={() =>
+                            handleDeletePayment(payment.id, payment.member_name)
+                          }
+                        >
+                          Supprimer
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -595,6 +657,18 @@ export default function Dashboard() {
                         {Number(item.amount || 0).toLocaleString()} FCFA
                       </strong>
                       <small>{item.payout_date}</small>
+
+                      <div style={{ marginTop: "10px" }}>
+                        <button
+                          type="button"
+                          className="danger-action-btn"
+                          onClick={() =>
+                            handleDeletePayout(item.id, item.beneficiary_name)
+                          }
+                        >
+                          Supprimer
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
