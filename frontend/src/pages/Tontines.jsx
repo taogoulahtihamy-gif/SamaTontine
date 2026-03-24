@@ -30,6 +30,50 @@ export default function Tontines() {
 
     loadTontines();
   }, []);
+  /**
+ * DELETE /api/tontines/:id/members/:memberId
+ * Supprimer un membre et ses paiements / redistributions liées
+ */
+app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const tontineId = Number(req.params.id);
+    const memberId = Number(req.params.memberId);
+
+    await client.query('BEGIN');
+
+    await client.query(
+      `DELETE FROM payouts WHERE tontine_id = $1 AND beneficiary_member_id = $2`,
+      [tontineId, memberId]
+    );
+
+    await client.query(
+      `DELETE FROM payments WHERE tontine_id = $1 AND member_id = $2`,
+      [tontineId, memberId]
+    );
+
+    const result = await client.query(
+      `DELETE FROM members WHERE tontine_id = $1 AND id = $2 RETURNING id`,
+      [tontineId, memberId]
+    );
+
+    await client.query('COMMIT');
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Membre introuvable.' });
+    }
+
+    const dashboard = await buildDashboard(tontineId);
+    res.json(dashboard);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('DELETE /api/tontines/:id/members/:memberId error:', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression du membre.' });
+  } finally {
+    client.release();
+  }
+});
 
   return (
     <div className="app-shell">

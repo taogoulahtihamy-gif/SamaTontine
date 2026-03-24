@@ -416,3 +416,94 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
+/**
+ * DELETE /api/tontines/:id
+ * Supprimer une tontine et toutes ses données liées
+ */
+app.delete('/api/tontines/:id', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const tontineId = Number(req.params.id);
+
+    await client.query('BEGIN');
+
+    await client.query(
+      `DELETE FROM payouts WHERE tontine_id = $1`,
+      [tontineId]
+    );
+
+    await client.query(
+      `DELETE FROM payments WHERE tontine_id = $1`,
+      [tontineId]
+    );
+
+    await client.query(
+      `DELETE FROM members WHERE tontine_id = $1`,
+      [tontineId]
+    );
+
+    const result = await client.query(
+      `DELETE FROM tontines WHERE id = $1 RETURNING id`,
+      [tontineId]
+    );
+
+    await client.query('COMMIT');
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Tontine introuvable.' });
+    }
+
+    res.json({ message: 'Tontine supprimée avec succès.' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('DELETE /api/tontines/:id error:', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression de la tontine.' });
+  } finally {
+    client.release();
+  }
+});
+/**
+ * DELETE /api/tontines/:id/members/:memberId
+ * Supprimer un membre et ses paiements / redistributions liées
+ */
+app.delete('/api/tontines/:id/members/:memberId', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const tontineId = Number(req.params.id);
+    const memberId = Number(req.params.memberId);
+
+    await client.query('BEGIN');
+
+    await client.query(
+      `DELETE FROM payouts WHERE tontine_id = $1 AND beneficiary_member_id = $2`,
+      [tontineId, memberId]
+    );
+
+    await client.query(
+      `DELETE FROM payments WHERE tontine_id = $1 AND member_id = $2`,
+      [tontineId, memberId]
+    );
+
+    const result = await client.query(
+      `DELETE FROM members WHERE tontine_id = $1 AND id = $2 RETURNING id`,
+      [tontineId, memberId]
+    );
+
+    await client.query('COMMIT');
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Membre introuvable.' });
+    }
+
+    const dashboard = await buildDashboard(tontineId);
+    res.json(dashboard);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('DELETE /api/tontines/:id/members/:memberId error:', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression du membre.' });
+  } finally {
+    client.release();
+  }
+});

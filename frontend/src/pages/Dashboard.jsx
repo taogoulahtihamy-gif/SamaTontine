@@ -34,9 +34,30 @@ export default function Dashboard() {
     status: "paid",
   });
 
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(""), 2500);
+  }
+
+  function getMemberStatus(member, tontineAmount) {
+    const paid = Number(member.total_paid || 0);
+    const expected = Number(tontineAmount || 0);
+
+    if (paid >= expected && expected > 0) {
+      return { label: "À jour", className: "paid" };
+    }
+
+    if (paid > 0) {
+      return { label: "Partiel", className: "partial" };
+    }
+
+    return { label: "En attente", className: "pending" };
+  }
+
   async function loadDashboard() {
     try {
       setLoading(true);
+
       const response = await fetch(`${API_BASE}/tontines/${id}`);
       const result = await response.json();
 
@@ -56,11 +77,6 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboard();
   }, [id]);
-
-  function showToast(message) {
-    setToast(message);
-    setTimeout(() => setToast(""), 2500);
-  }
 
   async function handleAddMember(e) {
     e.preventDefault();
@@ -158,20 +174,27 @@ export default function Dashboard() {
     }
   }
 
-  function getMemberStatus(member, tontineAmount) {
-  const paid = Number(member.total_paid || 0);
-  const expected = Number(tontineAmount || 0);
+  async function handleDeleteMember(memberId, fullName) {
+    const ok = window.confirm(`Supprimer le membre "${fullName}" ?`);
+    if (!ok) return;
 
-  if (paid >= expected && expected > 0) {
-    return { label: "À jour", className: "paid" };
+    try {
+      const response = await fetch(`${API_BASE}/tontines/${id}/members/${memberId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de la suppression du membre.");
+      }
+
+      setData(result);
+      showToast("Membre supprimé avec succès");
+    } catch (err) {
+      showToast(err.message || "Erreur réseau");
+    }
   }
-
-  if (paid > 0) {
-    return { label: "Partiel", className: "partial" };
-  }
-
-  return { label: "En attente", className: "pending" };
-}
 
   return (
     <div className="app-shell">
@@ -201,6 +224,7 @@ export default function Dashboard() {
             <section className="dashboard-grid">
               <article className="dashboard-block glass-card">
                 <h3>Informations générales</h3>
+
                 <div className="member-status-list">
                   <div className="status-row">
                     <div className="status-left">
@@ -235,6 +259,7 @@ export default function Dashboard() {
 
               <article className="dashboard-block glass-card">
                 <h3>Vue rapide</h3>
+
                 <div className="card-stats-grid">
                   <div className="mini-stat">
                     <span>Membres</span>
@@ -444,33 +469,45 @@ export default function Dashboard() {
 
                 <div className="member-status-list">
                   {data.members?.length ? (
-                   data.members.map((member) => {
-  const status = getMemberStatus(member, data.tontine?.amount);
+                    data.members.map((member) => {
+                      const status = getMemberStatus(member, data.tontine?.amount);
 
-  return (
-    <div key={member.id} className="status-row">
-      <div className="status-left">
-        <strong>{member.full_name}</strong>
-        <span>{member.phone || "Téléphone non renseigné"}</span>
-      </div>
+                      return (
+                        <div key={member.id} className="status-row">
+                          <div className="status-left">
+                            <strong>{member.full_name}</strong>
+                            <span>{member.phone || "Téléphone non renseigné"}</span>
+                          </div>
 
-      <div className="status-center">
-        <span className={`member-badge ${status.className}`}>
-          {status.label}
-        </span>
-      </div>
+                          <div className="status-center">
+                            <span className={`member-badge ${status.className}`}>
+                              {status.label}
+                            </span>
+                          </div>
 
-      <div className="status-right">
-        <strong>
-          {Number(member.total_paid || 0).toLocaleString()} FCFA
-        </strong>
-        <small>{member.payments_count || 0} paiement(s)</small>
-      </div>
-    </div>
-  );
-})
+                          <div className="status-right">
+                            <strong>
+                              {Number(member.total_paid || 0).toLocaleString()} FCFA
+                            </strong>
+                            <small>{member.payments_count || 0} paiement(s)</small>
+
+                            <div style={{ marginTop: "10px" }}>
+                              <button
+                                type="button"
+                                className="danger-action-btn"
+                                onClick={() =>
+                                  handleDeleteMember(member.id, member.full_name)
+                                }
+                              >
+                                Supprimer
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
-                    <p className="muted">Aucun membre pour le moment.</p>
+                    <p className="muted">Aucun membre</p>
                   )}
                 </div>
               </article>
