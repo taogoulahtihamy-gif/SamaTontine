@@ -23,9 +23,7 @@ async function ensureAdminTable() {
     )
   `);
 
-  const existing = await pool.query(
-    `SELECT id FROM admin_settings LIMIT 1`
-  );
+  const existing = await pool.query(`SELECT id FROM admin_settings LIMIT 1`);
 
   if (existing.rows.length === 0) {
     await pool.query(
@@ -345,9 +343,7 @@ app.get("/api/tontines", async (req, res) => {
     res.json(result.rows.map(mapTontineRow));
   } catch (error) {
     console.error("GET /api/tontines error:", error);
-    res
-      .status(500)
-      .json({ message: "Erreur serveur lors du chargement des tontines." });
+    res.status(500).json({ message: "Erreur serveur lors du chargement des tontines." });
   }
 });
 
@@ -363,9 +359,7 @@ app.get("/api/tontines/:id", async (req, res) => {
     res.json(dashboard);
   } catch (error) {
     console.error("GET /api/tontines/:id error:", error);
-    res
-      .status(500)
-      .json({ message: "Erreur serveur lors du chargement du dashboard." });
+    res.status(500).json({ message: "Erreur serveur lors du chargement du dashboard." });
   }
 });
 
@@ -451,14 +445,7 @@ app.put("/api/tontines/:id", requireAdmin, async (req, res) => {
       WHERE id = $6
       RETURNING id
       `,
-      [
-        name.trim(),
-        Number(amount),
-        frequency,
-        startDate || null,
-        description || null,
-        tontineId,
-      ]
+      [name.trim(), Number(amount), frequency, startDate || null, description || null, tontineId]
     );
 
     if (result.rows.length === 0) {
@@ -480,7 +467,6 @@ app.delete("/api/tontines/:id", requireAdmin, async (req, res) => {
     const tontineId = Number(req.params.id);
 
     await client.query("BEGIN");
-
     await client.query(`DELETE FROM payouts WHERE tontine_id = $1`, [tontineId]);
     await client.query(`DELETE FROM payments WHERE tontine_id = $1`, [tontineId]);
     await client.query(`DELETE FROM members WHERE tontine_id = $1`, [tontineId]);
@@ -520,21 +506,17 @@ app.post("/api/tontines/:id/members", requireAdmin, async (req, res) => {
     }
 
     const positionResult = await pool.query(
-      `
-      SELECT COALESCE(MAX(position), 0) + 1 AS next_position
-      FROM members
-      WHERE tontine_id = $1
-      `,
+      `SELECT COALESCE(MAX(position), 0) + 1 AS next_position
+       FROM members
+       WHERE tontine_id = $1`,
       [tontineId]
     );
 
     const nextPosition = Number(positionResult.rows[0].next_position || 1);
 
     await pool.query(
-      `
-      INSERT INTO members (tontine_id, full_name, phone, email, position)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
+      `INSERT INTO members (tontine_id, full_name, phone, email, position)
+       VALUES ($1, $2, $3, $4, $5)`,
       [tontineId, fullName.trim(), phone || "", email || null, nextPosition]
     );
 
@@ -557,14 +539,12 @@ app.put("/api/tontines/:id/members/:memberId", requireAdmin, async (req, res) =>
     }
 
     const result = await pool.query(
-      `
-      UPDATE members
-      SET full_name = $1,
-          phone = $2,
-          email = $3
-      WHERE tontine_id = $4 AND id = $5
-      RETURNING id
-      `,
+      `UPDATE members
+       SET full_name = $1,
+           phone = $2,
+           email = $3
+       WHERE tontine_id = $4 AND id = $5
+       RETURNING id`,
       [fullName.trim(), phone || "", email || null, tontineId, memberId]
     );
 
@@ -638,10 +618,8 @@ app.post("/api/tontines/:id/payments", requireAdmin, async (req, res) => {
     }
 
     await pool.query(
-      `
-      INSERT INTO payments (tontine_id, member_id, amount, payment_date, note)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
+      `INSERT INTO payments (tontine_id, member_id, amount, payment_date, note)
+       VALUES ($1, $2, $3, $4, $5)`,
       [tontineId, Number(memberId), Number(amount), paymentDate, note || null]
     );
 
@@ -666,23 +644,14 @@ app.put("/api/tontines/:id/payments/:paymentId", requireAdmin, async (req, res) 
     }
 
     const result = await pool.query(
-      `
-      UPDATE payments
-      SET member_id = $1,
-          amount = $2,
-          payment_date = $3,
-          note = $4
-      WHERE tontine_id = $5 AND id = $6
-      RETURNING id
-      `,
-      [
-        Number(memberId),
-        Number(amount),
-        paymentDate,
-        note || null,
-        tontineId,
-        paymentId,
-      ]
+      `UPDATE payments
+       SET member_id = $1,
+           amount = $2,
+           payment_date = $3,
+           note = $4
+       WHERE tontine_id = $5 AND id = $6
+       RETURNING id`,
+      [Number(memberId), Number(amount), paymentDate, note || null, tontineId, paymentId]
     );
 
     if (result.rows.length === 0) {
@@ -703,11 +672,9 @@ app.delete("/api/tontines/:id/payments/:paymentId", requireAdmin, async (req, re
     const paymentId = Number(req.params.paymentId);
 
     const result = await pool.query(
-      `
-      DELETE FROM payments
-      WHERE tontine_id = $1 AND id = $2
-      RETURNING id
-      `,
+      `DELETE FROM payments
+       WHERE tontine_id = $1 AND id = $2
+       RETURNING id`,
       [tontineId, paymentId]
     );
 
@@ -739,8 +706,7 @@ app.post("/api/tontines/:id/payouts", requireAdmin, async (req, res) => {
     }
 
     await pool.query(
-      `
-      INSERT INTO payouts (
+      `INSERT INTO payouts (
         tontine_id,
         beneficiary_member_id,
         round_label,
@@ -748,8 +714,7 @@ app.post("/api/tontines/:id/payouts", requireAdmin, async (req, res) => {
         payout_date,
         status
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      `,
+      VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         tontineId,
         Number(beneficiaryMemberId),
@@ -781,16 +746,14 @@ app.put("/api/tontines/:id/payouts/:payoutId", requireAdmin, async (req, res) =>
     }
 
     const result = await pool.query(
-      `
-      UPDATE payouts
-      SET beneficiary_member_id = $1,
-          round_label = $2,
-          amount = $3,
-          payout_date = $4,
-          status = $5
-      WHERE tontine_id = $6 AND id = $7
-      RETURNING id
-      `,
+      `UPDATE payouts
+       SET beneficiary_member_id = $1,
+           round_label = $2,
+           amount = $3,
+           payout_date = $4,
+           status = $5
+       WHERE tontine_id = $6 AND id = $7
+       RETURNING id`,
       [
         Number(beneficiaryMemberId),
         roundLabel,
@@ -820,11 +783,9 @@ app.delete("/api/tontines/:id/payouts/:payoutId", requireAdmin, async (req, res)
     const payoutId = Number(req.params.payoutId);
 
     const result = await pool.query(
-      `
-      DELETE FROM payouts
-      WHERE tontine_id = $1 AND id = $2
-      RETURNING id
-      `,
+      `DELETE FROM payouts
+       WHERE tontine_id = $1 AND id = $2
+       RETURNING id`,
       [tontineId, payoutId]
     );
 
