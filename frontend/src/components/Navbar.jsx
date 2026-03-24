@@ -74,6 +74,9 @@ function Navbar() {
             >
               Dashboard
             </Link>
+
+           <Link to="/login-admin">Admin</Link>
+
           </div>
         </>
       )}
