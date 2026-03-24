@@ -158,6 +158,21 @@ export default function Dashboard() {
     }
   }
 
+  function getMemberStatus(member, tontineAmount) {
+  const paid = Number(member.total_paid || 0);
+  const expected = Number(tontineAmount || 0);
+
+  if (paid >= expected && expected > 0) {
+    return { label: "À jour", className: "paid" };
+  }
+
+  if (paid > 0) {
+    return { label: "Partiel", className: "partial" };
+  }
+
+  return { label: "En attente", className: "pending" };
+}
+
   return (
     <div className="app-shell">
       <div className="ambient ambient-1" />
@@ -429,21 +444,31 @@ export default function Dashboard() {
 
                 <div className="member-status-list">
                   {data.members?.length ? (
-                    data.members.map((member) => (
-                      <div key={member.id} className="status-row">
-                        <div className="status-left">
-                          <strong>{member.full_name}</strong>
-                          <span>{member.phone || "Téléphone non renseigné"}</span>
-                        </div>
+                   data.members.map((member) => {
+  const status = getMemberStatus(member, data.tontine?.amount);
 
-                        <div className="status-right">
-                          <strong>
-                            {Number(member.total_paid || 0).toLocaleString()} FCFA
-                          </strong>
-                          <small>{member.payments_count || 0} paiement(s)</small>
-                        </div>
-                      </div>
-                    ))
+  return (
+    <div key={member.id} className="status-row">
+      <div className="status-left">
+        <strong>{member.full_name}</strong>
+        <span>{member.phone || "Téléphone non renseigné"}</span>
+      </div>
+
+      <div className="status-center">
+        <span className={`member-badge ${status.className}`}>
+          {status.label}
+        </span>
+      </div>
+
+      <div className="status-right">
+        <strong>
+          {Number(member.total_paid || 0).toLocaleString()} FCFA
+        </strong>
+        <small>{member.payments_count || 0} paiement(s)</small>
+      </div>
+    </div>
+  );
+})
                   ) : (
                     <p className="muted">Aucun membre pour le moment.</p>
                   )}
