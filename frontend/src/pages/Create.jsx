@@ -49,44 +49,40 @@ function Create() {
   }
 
   async function createTontine(e) {
-    e.preventDefault();
-    setCreating(true);
+  e.preventDefault();
+  setCreating(true);
 
+  try {
+    const response = await fetch(`${API_BASE}/tontines`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
+
+    const raw = await response.text();
+    console.log("Réponse brute serveur =", raw);
+
+    let data;
     try {
-      const response = await fetch(`${API_BASE}/tontines`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors de la création.");
-      }
-
-      setToast("Tontine créée avec succès.");
-
-      setForm({
-        name: "",
-        amount: 10000,
-        frequency: "Mensuelle",
-        startDate: "",
-        description: "",
-        members: [emptyMember(), emptyMember()],
-      });
-
-      setTimeout(() => {
-        navigate("/tontines");
-      }, 800);
-    } catch (error) {
-      setToast(error.message || "Erreur lors de la création.");
-    } finally {
-      setCreating(false);
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error(`Le serveur n'a pas renvoyé du JSON : ${raw}`);
     }
+
+    if (!response.ok) {
+      throw new Error(data.message || "Erreur lors de la création.");
+    }
+
+    setToast("Tontine créée avec succès !");
+    setTimeout(() => navigate("/tontines"), 1200);
+  } catch (error) {
+    setToast(error.message);
+  } finally {
+    setCreating(false);
   }
+}
 
   return (
     <div className="app-shell">
