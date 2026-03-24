@@ -1040,3 +1040,8 @@ textarea:focus {
     top: 72px;
   }
 }
+.danger-action-btn {
+  background: red !important;
+  color: white;
+  padding: 8px 12px;
+}
