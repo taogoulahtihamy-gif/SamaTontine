@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://samatontine.onrender.com/api";
+const API_BASE = "https://samatontine.onrender.com/api";
 
 export default function Tontines() {
   const [tontines, setTontines] = useState([]);
