@@ -75,7 +75,11 @@ function Navbar() {
               Dashboard
             </Link>
 
-           <Link to="/login-admin">Admin</Link>
+           <Link to="/login-admin"
+             onClick={closeMenu}
+              className={location.pathname === "/login-admin" ? "active-link" : ""}
+           
+           >Admin</Link>
 
           </div>
         </>
