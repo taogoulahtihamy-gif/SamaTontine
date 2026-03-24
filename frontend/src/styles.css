@@ -1041,7 +1041,22 @@ textarea:focus {
   }
 }
 .danger-action-btn {
-  background: red !important;
-  color: white;
-  padding: 8px 12px;
+  background: rgba(255, 143, 143, 0.12);
+  color: #ffb0b0;
+  border: 1px solid rgba(255, 143, 143, 0.28);
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.danger-action-btn:hover {
+  background: rgba(255, 143, 143, 0.18);
+  border-color: rgba(255, 143, 143, 0.45);
+  transform: translateY(-1px);
+}
+
+.danger-action-btn:active {
+  transform: scale(0.98);
 }
