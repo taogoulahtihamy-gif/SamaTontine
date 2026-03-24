@@ -1087,3 +1087,8 @@ textarea:focus {
     width: 100%;
   }
 }
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
